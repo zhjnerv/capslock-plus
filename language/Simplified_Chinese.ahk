@@ -10,8 +10,8 @@ global lang_clq_noCmd:="没有该命令"
 global lang_clq_emptyFolder:="<空文件夹>"
 
 ; ydTrans.ahk
-global lang_yd_translating:="翻译中...  （如果网络太差，翻译请求会暂时阻塞程序，稍等就好）"
-global lang_yd_name:="有道翻译"
+global lang_yd_translating:="翻译中💪，😀感谢OwO-Network/DeepLX搭建的白嫖接口" ;"翻译中...  （如果网络太差，翻译请求会暂时阻塞程序，稍等就好）"
+global lang_yd_name:="DeepL翻译" ;"有道翻译"
 global lang_yd_needKey:="缺少有道翻译API的key，有道翻译无法使用"
 global lang_yd_fileNotExist:="文件（文件夹）不存在"
 global lang_yd_errorNoNet:="发送异常，可能是网络已断开"
