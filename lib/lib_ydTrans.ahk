@@ -7,14 +7,11 @@
 global TransEdit,transEditHwnd,transGuiHwnd, NativeString
 
 youdaoApiInit:
-global youdaoApiString:="http://deepl.zhjwork.online/translate"
+global youdaoApiString:="https://deepl.zhjwork.online/translate"
 
 
 
 ;  #Include *i youdaoApiKey.ahk
-
-
-
 
 
 setTransGuiActive:
@@ -102,14 +99,14 @@ whr.setRequestHeader("Content-Type", "application/json")
 
 whr.Send(json_data)
 
-
+MsgBox, 发送内容：%json_data%
 afterSend:
 responseStr := whr.ResponseText
-
+MsgBox, 返回结果：%responseStr%
 
 ; transJson:=JSON_from(responseStr) 
 transJson:=JSON.Load(responseStr)
-MsgBox, 输出结果：%transJson%
+
 ;MsgBox, %JSON.to(transJson)% ;弹出整个翻译结果的json，测试用
 ; 检查返回的状态码
 
