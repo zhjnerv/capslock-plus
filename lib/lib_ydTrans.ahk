@@ -3,40 +3,19 @@
 */
 
 #Include lib_json.ahk   	;引入json解析文件
-#Include sha256.ahk		;引入sha256加密文件
 
 global TransEdit,transEditHwnd,transGuiHwnd, NativeString
 
 youdaoApiInit:
-global youdaoApiString:=""
+global youdaoApiString:="http://deepl.zhjwork.online/translate"
+
+
 
 ;  #Include *i youdaoApiKey.ahk
-global youdaoApiKey0, youdaoApiKey1
-youdaoApiKey0=12763084
-global appID=""
-global appKey=""
 
-; 收费版 API
-if (CLSets.TTranslate.appPaidID != "" && CLSets.TTranslate.appPaidID != "")
-{
-	appID:=CLSets.TTranslate.appPaidID
-	appKey:=CLSets.TTranslate.appPaidKey
-	youdaoApiString=http://openapi.youdao.com/api?signType=v3&from=auto&to=auto&appKey=%appID%
-}
-else
-{
-	if(CLSets.TTranslate.apiKey!="")
-	{
-		key:=CLSets.TTranslate.apiKey
-		keyFrom:=ClSets.TTranslate.keyFrom
-		youdaoApiString=http://fanyi.youdao.com/openapi.do?keyfrom=%keyFrom%&key=%key%&type=data&doctype=json&version=1.1&q=
-	}
-	else if(youdaoApiKey0)
-	{
-		youdaoApiString=http://fanyi.youdao.com/openapi.do?keyfrom=CapsLock&key=%youdaoApiKey0%&type=data&doctype=json&version=1.1&q=
-	}
-}
-return
+
+
+
 
 setTransGuiActive:
 WinActivate, ahk_id %transGuiHwnd%
@@ -44,11 +23,6 @@ return
 
 ydTranslate(ss)
 {
-if(CLSets.TTranslate.apiType = 0 || CLSets.TTranslate.appPaidID = "")
-{
-	MsgBox, %lang_yd_free_key_unavailable_warning%
-	return
-}
 transStart:
     ;  if(StrLen(ss) >= 2000)
     ;  {
@@ -103,181 +77,83 @@ if(NativeString) ;如果传入的字符串非空则翻译
 
 Return
 
+
 ydApi:
-UTF8Codes:="" ;重置要发送的代码
-SetFormat, integer, H
-UTF8Codes:=UTF8encode(NativeString)
-if(youdaoApiString="")
-{
-	MsgBoxStr=%lang_yd_needKey%
-	goto, setTransText
-}
 
-; 目前 apiType 只可能为 1，暂时保留对 apiType 的判断结构，以防以后需要添加其他 api 类型的支持
-; youdao api docs: https://ai.youdao.com/DOCSIRMA/html/trans/api/wbfy/index.html
-if (true || CLSets.TTranslate.apiType=1) {
-	; salt sign curtime
-	; sign=sha256(应用ID+input+salt+curtime+应用密钥)
-	myNow := A_NowUTC
-	myNow -= 19700101000000, Seconds
-	salt := CreateUUID()
-	myNow := Format("{:d}", myNow)
-	if (StrLen(NativeString) > 20) {
-		NativeStringF := SubStr(NativeString, 1, 10)
-		NativeStringE := SubStr(NativeString, -9, 10)
-		signString := appID . NativeStringF . Format("{:d}", StrLen(NativeString)) . NativeStringE . salt . myNow . appKey
-	} else {
-		signString := appID . NativeString . salt . myNow . appKey
-	}
-	sign:=bcrypt.hash(signString, "SHA256")
-	sendStr:=youdaoApiString . "&salt=" . salt . "&curtime=" . myNow . "&sign=" . sign . "&q=" . UTF8encode(NativeString)
-	whr := ComObjCreate("Msxml2.XMLHTTP")
 
-	whr.Open("GET", sendStr, False)
-} else {
-	sendStr:=youdaoApiString . UTF8Codes
-	whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+sendStr:=youdaoApiString
 
-	whr.Open("GET", sendStr)
-}
+; 创建一个空对象
+data := {}
 
-;~ MsgBox, 3
-try
-{
-	whr.Send()
-}
-catch
-{
-	MsgBoxStr:=lang_yd_errorNoNet
-	goto, setTransText
-}
+; 添加属性
+data["text"] := NativeString
+data["source_lang"] := "EN"
+data["target_lang"] := "ZH"
+
+; 将 JSON 对象转换为字符串
+json_data := JSON.Dump(data)
+
+whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+
+whr.Open("POST", sendStr)
+
+whr.setRequestHeader("Content-Type", "application/json")
+
+whr.Send(json_data)
+
+
 afterSend:
 responseStr := whr.ResponseText
 
-;~ transJson:=JSON_from(responseStr)
-transJson:=JSON.Load(responseStr)
-; MsgBox, % responseStr
-; MsgBox, % JSON_to(transJson) ;弹出整个翻译结果的json，测试用
-returnError:=transJson.errorCode
-if(returnError) ;如果返回错误结果，显示出相应原因
-{
-	if(returnError=10)
-	{
-		MsgBoxStr:=lang_yd_errorTooLong
-	}
-	else if(returnError=11)
-	{
-		MsgBoxStr:=lang_yd_errorNoResults
-	}
-	else if(returnError=20)
-	{
-		MsgBoxStr:=lang_yd_errorTextTooLong
-	}
-	else if(returnError=30)
-	{
-		MsgBoxStr:=lang_yd_errorCantTrans
-	}
-	else if(returnError=40)
-	{
-		MsgBoxStr:=lang_yd_errorLangType
-	}
-	else if(returnError=50)
-	{
-		MsgBoxStr:=lang_yd_errorKeyInvalid
-	}
-	else if(returnError=60)
-	{
-		MsgBoxStr:=lang_yd_errorSpendingLimit
-	}
-	else if(returnError=70)
-	{
-		MsgBoxStr:=lang_yd_errorNoFunds
-	}
-	else if (returnError=202)
-	{
-		MsgBoxStr:=lang_yd_errorKeyInvalid
-	}
-	goto, setTransText
-	return
-}
- ;================拼MsgBox显示的内容
-{
 
-	MsgBoxStr:= % transJson.query . "`t"   ;原单词
-	if(transJson.basic.phonetic)
-	{
-		MsgBoxStr:=% MsgBoxStr . "[" . transJson.basic.phonetic . "] "  ;读音
-	}
-	MsgBoxStr:= % MsgBoxStr . "`r`n`r`n" . lang_yd_trans . "`r`n" ;分隔，换行
-	;~ MsgBoxStr:= % MsgBoxStr . "--有道翻译--`n"
-	Loop
-	{
-		if (transJson.translation[A_Index])
-		{
-			if (%A_Index%>1)
-			{
-				MsgBoxStr:=% MsgBoxStr . A_Space . ";" . A_Space  ;给每个结果之间插入" ; "
-			}
-			MsgBoxStr:= % MsgBoxStr . transJson.translation[A_Index]                                     ;翻译结果
-		}
-		else
-		{
-			MsgBoxStr:= % MsgBoxStr . "`r`n`r`n" . lang_yd_dict . "`r`n"
-			break
-		}
-	}
-	;~ MsgBoxStr:= % MsgBoxStr . "--有道词典结果--`n"
-	Loop
-	{
-		if (transJson.basic.explains[A_Index])
-		{
-			if (A_Index>1)
-			{
-				;~ MsgBoxStr:=% MsgBoxStr . A_Space . ";" . A_Space  ;给每个结果之间插入" ; "
-				MsgBoxStr:=% MsgBoxStr . "`r`n"   ;每条短语换一行
-			}
-			MsgBoxStr:= % MsgBoxStr . transJson.basic.explains[A_Index]                                      ;有道词典结果
-		}
-		else
-		{
-			MsgBoxStr:= % MsgBoxStr . "`r`n`r`n" . lang_yd_phrase . "`r`n"
-			break
-		}
-	}
-	;~ MsgBoxStr:= % MsgBoxStr . "--短语--`n"
-	Loop
-	{
-		if (transJson.web[A_Index])
-		{
-			if (A_Index>1)
-			{
-				MsgBoxStr:=% MsgBoxStr . "`r`n"   ;每条短语换一行
-			}
-			MsgBoxStr:= % MsgBoxStr . transJson.web[A_Index].key . A_Space . A_Space   ;短语  
-			thisA_index:=A_Index
-			Loop
-			{
-				if(transJson.web[thisA_index].value[A_Index])
-				{
-					if (A_Index>1)
-					{
-						MsgBoxStr:=% MsgBoxStr . A_Space . ";" . A_Space  ;给每个结果之间插入" ; "
-					}
-					MsgBoxStr:= % MsgBoxStr . transJson.web[thisA_index].value[A_Index]
-				}
-				else
-				{
-					break
-				}
-			}
-		}
-		else
-		{
-			break
-		}
-	}
+; transJson:=JSON_from(responseStr) 
+transJson:=JSON.Load(responseStr)
+MsgBox, 输出结果：%transJson%
+;MsgBox, %JSON.to(transJson)% ;弹出整个翻译结果的json，测试用
+; 检查返回的状态码
+
+if (transJson.code = 200) {
+    ; 如果状态码是200，表示翻译成功
+    primaryTranslation := transJson.data ; 主要翻译结果
+    alternativeTranslations := transJson.alternatives ; 次要翻译结果列表
+    ; 构建要显示的消息字符串
+    MsgBoxStr := "主要翻译结果：" . primaryTranslation
+    if (alternativeTranslations.MaxIndex() > 0) {
+        MsgBoxStr .= "`n`n次要翻译结果："
+        Loop, % alternativeTranslations.MaxIndex() {
+            MsgBoxStr .= "`n" . alternativeTranslations[A_Index]
+        }
+    }
+} else {
+    ; 如果状态码不是200，表示翻译失败，显示错误信息
+    MsgBoxStr := "错误：" . transJson.code
 }
+MsgBox, 翻译结果：%MsgBoxStr%
+
+
+; 初始化消息字符串
+MsgBoxStr := NativeString . "`t"  ; 原单词
+
+; 添加主要翻译结果
+MsgBoxStr .= " " . primaryTranslation . "`n`n"
+
+; 检查alternatives是否存在并且不为空
+if (ObjHasKey(transJson, "alternatives") && transJson.alternatives.Length > 0) {
+    ; 添加次要翻译结果
+    MsgBoxStr .= "次要翻译结果：`n"
+    Loop % transJson.alternatives.Length {
+        MsgBoxStr .= transJson.alternatives[A_Index] . "`n"
+    }
+}
+
+; 显示消息框
+MsgBox, 翻译结果：%MsgBoxStr%
 ;~ MsgBox, % MsgBoxStr
+
+
+
+
 setTransText:
 ControlSetText, , %MsgBoxStr%, ahk_id %transEditHwnd%
 ControlFocus, , ahk_id %transEditHwnd%
@@ -306,12 +182,3 @@ IfWinExist, ahk_id %transGuiHwnd%
     WinActivate, ahk_id %transGuiHwnd%
 }
 return
-
-CreateUUID()
-{
-    VarSetCapacity(puuid, 16, 0)
-    if !(DllCall("rpcrt4.dll\UuidCreate", "ptr", &puuid))
-        if !(DllCall("rpcrt4.dll\UuidToString", "ptr", &puuid, "uint*", suuid))
-            return StrGet(suuid), DllCall("rpcrt4.dll\RpcStringFree", "uint*", suuid)
-    return ""
-}
