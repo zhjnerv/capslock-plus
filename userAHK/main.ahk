@@ -14,5 +14,7 @@
 #include demo.ahk
 
 keyFunc_example1(){
-  msgbox, example1
+  SendInput % "{TEXT}" . "http://ouo.io/qs/16EB70rI?s=" . Clipboard
+Clipboard := "http://ouo.io/qs/16EB70rI?s=" . Clipboard
+Return
 }
