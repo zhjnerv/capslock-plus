@@ -99,55 +99,37 @@ whr.setRequestHeader("Content-Type", "application/json")
 
 whr.Send(json_data)
 
-MsgBox, 发送内容：%json_data%
+;~MsgBox, 发送内容：%json_data%
 afterSend:
 responseStr := whr.ResponseText
-MsgBox, 返回结果：%responseStr%
+;~MsgBox, 返回结果：%responseStr%
 
 ; transJson:=JSON_from(responseStr) 
 transJson:=JSON.Load(responseStr)
 
-;MsgBox, %JSON.to(transJson)% ;弹出整个翻译结果的json，测试用
+;MsgBox, %JSON.to(transJson)% ;弹出整个译文的json，测试用
 ; 检查返回的状态码
 
 if (transJson.code = 200) {
     ; 如果状态码是200，表示翻译成功
-    primaryTranslation := transJson.data ; 主要翻译结果
-    alternativeTranslations := transJson.alternatives ; 次要翻译结果列表
+    primaryTranslation := transJson.data ; 主要译文
+    alternativeTranslations := transJson.alternatives ; 次要译文列表
+
     ; 构建要显示的消息字符串
-    MsgBoxStr := "主要翻译结果：" . primaryTranslation
+    MsgBoxStr := "主要译文：`r`n" . primaryTranslation . "`r`n"
     if (alternativeTranslations.MaxIndex() > 0) {
-        MsgBoxStr .= "`n`n次要翻译结果："
+        MsgBoxStr .= "次要译文："
         Loop, % alternativeTranslations.MaxIndex() {
-            MsgBoxStr .= "`n" . alternativeTranslations[A_Index]
+            MsgBoxStr .= "`r`n" . alternativeTranslations[A_Index]
         }
     }
 } else {
     ; 如果状态码不是200，表示翻译失败，显示错误信息
     MsgBoxStr := "错误：" . transJson.code
 }
-MsgBox, 翻译结果：%MsgBoxStr%
-
-
-; 初始化消息字符串
-MsgBoxStr := NativeString . "`t"  ; 原单词
-
-; 添加主要翻译结果
-MsgBoxStr .= " " . primaryTranslation . "`n`n"
-
-; 检查alternatives是否存在并且不为空
-if (ObjHasKey(transJson, "alternatives") && transJson.alternatives.Length > 0) {
-    ; 添加次要翻译结果
-    MsgBoxStr .= "次要翻译结果：`n"
-    Loop % transJson.alternatives.Length {
-        MsgBoxStr .= transJson.alternatives[A_Index] . "`n"
-    }
-}
 
 ; 显示消息框
-MsgBox, 翻译结果：%MsgBoxStr%
-;~ MsgBox, % MsgBoxStr
-
+;~MsgBox, 译文1：%MsgBoxStr%
 
 
 
