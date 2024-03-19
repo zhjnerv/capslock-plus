@@ -68,7 +68,7 @@ else ;IfWinNotExist,  ahk_id %transGuiHwnd% ;有道翻译
 if(NativeString) ;如果传入的字符串非空则翻译
 {
 	;~ MsgBox, 2
-	SetTimer, ydApi, -1
+	SetTimer, DeepLApi, -1
 	return
 }
 
@@ -114,7 +114,7 @@ if (transJson.code = 200) {
     ; 如果状态码是200，表示翻译成功
     primaryTranslation := transJson.data ; 主要译文
     alternativeTranslations := transJson.alternatives ; 次要译文列表
-	MsgBox, %NativeString% 
+	;~MsgBox, %NativeString% 
     ; 构建要显示的消息字符串
 	MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
     MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n" ; 注意第二行开始，不使用分号而是使用句号
@@ -146,7 +146,7 @@ Gui, Submit, NoHide
 
 TransEdit:=RegExReplace(TransEdit, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
 NativeString:=Trim(TransEdit)
-;~ goto, ydApi
+;~ goto, DeepLApi
 goto, transGui
 
 return
