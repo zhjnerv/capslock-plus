@@ -114,9 +114,10 @@ if (transJson.code = 200) {
     ; 如果状态码是200，表示翻译成功
     primaryTranslation := transJson.data ; 主要译文
     alternativeTranslations := transJson.alternatives ; 次要译文列表
-
+	MsgBox, %NativeString% 
     ; 构建要显示的消息字符串
-    MsgBoxStr := "主要译文：`r`n" . primaryTranslation . "`r`n"
+	MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
+    MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
     if (alternativeTranslations.MaxIndex() > 0) {
         MsgBoxStr .= "次要译文："
         Loop, % alternativeTranslations.MaxIndex() {
