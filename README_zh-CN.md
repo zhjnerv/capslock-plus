@@ -2,6 +2,18 @@
 
 ---
 
+## 修改简介
+由于原有的翻译接口(有道翻译)一直无法使用，在Gemini的帮助下修改了翻译接口为白嫖(DeepL)接口，顺带自己搭建了[DeepLX Powerful DeepL Translation API](https://deeplx.owo.network)。
+
+- 能力有限，无法像原作者一样给出对应的选择配置，文件已经内置好了我自己搭建的[DeepLX](https://zhjwork.online/2024/04/30/deeplx%e7%99%bd%e5%ab%96%e6%9c%8d%e5%8a%a1/)服务，直接使用即可。
+- 同时修改了翻译窗口，对应长段落翻译增加了滚动条
+
+**再次感谢Google-Gemini和DeepLX的无私奉献**
+
+---
+
+
+
 master 分支：v3.0+
 
 v2 分支：v2.x
