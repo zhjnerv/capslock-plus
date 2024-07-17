@@ -1,82 +1,93 @@
-English | [中文](README_zh-CN.md)
+中文 | [English](readme_en.md) 
 
 ---
 
-master branch: v3.0+
+## 修改简介
+由于原有的翻译接口(有道翻译)一直无法使用，在Gemini的帮助下修改了翻译接口为白嫖(DeepL)接口，顺带自己搭建了[DeepLX Powerful DeepL Translation API](https://deeplx.owo.network)。
 
-v2 branch: v2.x
+- 能力有限，无法像原作者一样给出对应的选择配置，文件已经内置好了我自己搭建的[DeepLX](https://zhjwork.online/2024/04/30/deeplx%e7%99%bd%e5%ab%96%e6%9c%8d%e5%8a%a1/)服务，直接使用即可。
+- 同时修改了翻译窗口，对应长段落翻译增加了滚动条
 
-[Docs](https://capslox.com/capslock-plus/en.html)
+**再次感谢Google-Gemini和DeepLX的无私奉献**
+
+---
 
 
-## How to run the source code?
-1. Download and install [AutoHotkey (v1.1.+)](http://www.ahkscript.org/)
-2. Clone the Capslock+ source code
-3. Run `Capslock+.ahk`
 
-## How to set a custom function to a hotkey?
-1. There is a key function `keyFunc_example2` in demo.ahk.
-2. Add below setting under the [Keys] section in `CapsLock+settings.ini`:
-    `caps_f7=keyFunc_example2`
-3. Save, reload Capslock+ (CapsLock+F5)
-4. Press `CapsLock+F7` to invoke the function
+master 分支：v3.0+
 
-* In order to avoid calling the internal functions, all the key functions are restricted to start with `keyfunc_`
+v2 分支：v2.x
 
-An example here:
+[官网（说明文档）](https://capslox.com/capslock-plus/)
 
-### Replace Capslock+Q with Listary
-Listary is a good app launcher, now I want to add two features to it:
 
-1. Activate Listary with `CapsLock+Q`
-2. I want to fill the selected text into the pop-up text input box
+## 怎么运行Capslock+的源码？
+1. 下载 [AutoHotkey (v1.1.+)](http://www.ahkscript.org/)，并安装。
+2. 从 GitHub 下载 Capslock+ 源码。
+3. 运行`Capslock+.ahk`。
 
-We can make it like this:
+## 怎么修改某个热键为自定义功能？
+1. 在 `/userAHK/main.ahk`，编写自定义的按键功能函数，例如 `keyFunc_example1`
+2. 在 `CapsLock+settings.ini` 的 [Keys] 字段下添加设置按键设置，例如：
+    `caps_f7=keyFunc_example1`
+3. 保存后重载 Capslock+ (Capslock+F5)
+4. 之后再按下 `CapsLock+F7` 就可以触发该函数。
 
-1. Copy the following code to `/userAHK/main.ahk`:
+* 为了避免按键设置会调到内部函数，所以规定了所有函数以`keyfunc_`开头
+
+下面提供一个例子：
+
+### 把 Capslock+Q 替换成 Listary
+有同学跟我吐槽`qbar`太弱鸡，让我参考`WOX`，`Listary`等把`qbar`写得厉害一点，但我觉得`qbar`就是够用就好，如果有更高的需求那就直接用它们代替`qbar`吧。以`Listary`为例子，`Listary`虽然强大，但是个人觉得跟`qbar`比有两个不足的地方：
+
+1. 我觉得 Listary 的默认热键不如 `Capslock+Q` 顺手
+2. 不能将选中的文字直接填入
+
+那我们可以这样做来解决这两个问题：
+
+1. 把下面代码复制到`/userAHK/main.ahk`里：
 ```ahk
 keyfunc_listary(){
-    ; Get the selected text
+    ; 获取选中的文字
     selText:=getSelText()
 
-    ; Send win+F (the default hotkey of Listary) to activate Listary
+    ; 发送 win+F 按键（Listary默认的呼出快捷键），呼出Listary
     sendinput, #{f}
 
-    ; Wait until Listary is activated
+    ; 等待 Listary 输入框打开
     winwait, ahk_exe Listary.exe, , 0.5
 
-    ; If there is any selected text
+    ; 如果有选中文字的话
     if(selText){
-        ; Add "gg " before the selected text to google
+        ; 在选中的字前面加上"gg "，使用 google 搜索
         selText:="gg " . selText
 
-        ; Fill the text, and press `home` key to move the cursor to the beginning,
-        ; in order to add other keywords if you need.
+        ; 输出刚才复制的文字，并按一下`home`键将光标移到开头，以方便加入其它关键词
         sendinput, %selText%{home}
     }
 }
 ```
 
-2. Add a setting `caps_q=keyfunc_listary()` under `[Keys]` section in `CapsLock+settings.ini`, save, press `CapsLock+F5` to reload, done.
+2. 在`CapsLock+settings.ini` `[keys]`设置：`caps_q=keyfunc_listary()`，保存，按下`CapsLock+F5`重载，搞定。
 
-## How to modify the original functions?
-`CapsLock+.ahk` is the entry file, library files are in the `/lib` folder,
-the function of each file is as follows:
+## 怎么修改原有的功能？
+`CapsLock+.ahk`是入口文件，其他所有依赖文件都扔`/lib`里了，各文件说明如下：
 
-|Filename|Description|
+|文件|说明|
 |:---|:---|
-|lib_bindWins.ahk|Window binding|
+|lib_bindWins.ahk|窗口绑定|
 |lib_clQ.ahk|qbar|
 |lib_clTab.ahk|CapsLock+Tab|
-|lib_functions.ahk|Some utils|
-|lib_init.ahk|Program initialization|
-|lib_jsEval.ahk|The calculation function implemented by using the IE engine, required by Math Board and CapsLock+Tab|
-|lib_json.ahk|json library|
-|lib_keysFunction.ahk|All the key functions|
-|lib_keysSet.ahk|Hotkey layouts|
-|lib_loadAnimation.ahk|Loading animation when the program starts|
-|lib_mathBoard.ahk|Math Board|
-|lib_mouseSpeed.ahk|Mouse speed modification|
-|lib_settings.ahk|Load the settings in CapsLock+settings.ini|
-|lib_ydTrans.ahk|Youdao Translation|
+|lib_functions.ahk|一些依赖函数|
+|lib_init.ahk|各种初始化从这里开始|
+|lib_jsEval.ahk|调用ie引擎实现的计算功能，计算板和Caps+Tab的计算功能都用到|
+|lib_json.ahk|json库|
+|lib_keysFunction.ahk|几乎所有按键功能都在这实现|
+|lib_keysSet.ahk|热键布局|
+|lib_language.ahk|程序用到的字符串放到这|
+|lib_loadAnimation.ahk|程序加载动画|
+|lib_mathBoard.ahk|计算板|
+|lib_mouseSpeed.ahk|鼠标变速|
+|lib_settings.ahk|Capslock+settings.ini设置项提取|
+|lib_ydTrans.ahk|翻译|
 
