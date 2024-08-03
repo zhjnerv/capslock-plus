@@ -7,7 +7,7 @@
 global TransEdit,transEditHwnd,transGuiHwnd, NativeString
 
 youdaoApiInit:
-global youdaoApiString:="https://deepl.zhjwork.online/translate"
+global youdaoApiString:="https://deepl.zhjwork.online/v1/translate"
 
 
 
@@ -94,6 +94,9 @@ json_data := JSON.Dump(data)
 whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 
 whr.Open("POST", sendStr)
+
+msgBox, 发送内容：%json_data%
+
 
 whr.setRequestHeader("Content-Type", "application/json")
 

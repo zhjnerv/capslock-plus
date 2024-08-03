@@ -12,6 +12,10 @@
 ; 4. Press `CapsLock+F7` to invoke the function
 
 #include demo.ahk
+#include OpenAI.ahk
+
+
+
 
 keyFunc_example1(){
   SendInput % "{TEXT}" . "http://ouo.io/qs/16EB70rI?s=" . Clipboard
