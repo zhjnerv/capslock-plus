@@ -59,11 +59,11 @@ keyFunc_OpenAI(){
         ; 构建请求头
         http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
         post_url := base_url . "v1/chat/completions"
-        http.Open("POST", post_url)
+        http.Open("POST", post_url, True)
         http.SetRequestHeader("Content-Type", "application/json")
         http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
         http.Send(json_data)
-        http.WaitForResponse()
+        http.WaitForResponse(-1)
         ; 获取响应
 
         arr := http.responseBody
