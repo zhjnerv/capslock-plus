@@ -29,7 +29,7 @@ keyFunc_OpenAI(){
     top_p:=CLSets.TTranslate.top_p
     system_prompt = 
     (
-    你是一个金牌销售，知识产权法律顾问，精通各种销售技巧，并具良好的心理学技巧。我希望你能帮我将以下内容转化为与客户沟通的销售用语。在不改变意思表示的情况下改变语气，使用积极、自然朴实的语言，巧妙地提供情绪价值，以获得客户信任，完成销售目的。
+    你是一个客户关系处理专家，知识产权法律顾问，精通各种销售技巧，并具良好的心理学技巧。我希望你能帮我将以下内容转化为与客户沟通的公关用语。在不改变意思表示的情况下改变语气，使用自然朴实的语言，巧妙地提供情绪价值，以获得客户信任，完成销售目的。
     )
     ;确认变量
     MsgBox, [ %OpenAI_key%, %base_url%, %model%, %temperature%, %top_p% ]
@@ -76,7 +76,7 @@ keyFunc_OpenAI(){
 
         ; 使用 JSON.Load 解析响应 (移除 .Text)
         responseObject := JSON.Load(response)
-        MsgBox, %responseObject%
+        ;MsgBox, %responseObject%
 
         ; 获取助手消息内容
         result := responseObject.choices[1].message.content

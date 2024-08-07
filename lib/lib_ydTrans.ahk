@@ -34,7 +34,7 @@ transStart:
 
 transGui:
 ;~ WinClose, 有道翻译
-MsgBoxStr:=NativeString?lang_yd_translating:""
+;MsgBoxStr:=NativeString?lang_yd_translating:""
 
 DetectHiddenWindows, On ;可以检测到隐藏窗口
 WinGet, ifGuiExistButHide, Count, ahk_id %transGuiHwnd%
