@@ -95,7 +95,7 @@ whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 
 whr.Open("POST", sendStr)
 
-msgBox, 发送内容：%json_data%
+;msgBox, 发送内容：%json_data%
 
 
 whr.setRequestHeader("Content-Type", "application/json")
