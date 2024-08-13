@@ -22,3 +22,25 @@ keyFunc_example1(){
 Clipboard := "http://ouo.io/qs/16EB70rI?s=" . Clipboard
 Return
 }
+
+keyFunc_OpenAI(){
+  global
+  selText:=getSelText()
+  if(selText)
+  {
+    OpenAI_Cap(selText)
+  }
+  else
+  {
+      ClipboardOld:=ClipboardAll
+      Clipboard:=""
+      SendInput, ^{Left}^+{Right}^{insert}
+      ClipWait, 0.05
+      selText:=Clipboard
+      OpenAI_Cap(selText)
+      Clipboard:=ClipboardOld
+  }
+  ;WinActivate, ahk_id %openaiGuiHwnd%
+  SetTimer, setopenAIGuiActive, -400
+  Return
+}
