@@ -7,7 +7,7 @@
 global TransEdit,transEditHwnd,transGuiHwnd, NativeString
 
 youdaoApiInit:
-global youdaoApiString:="https://deepl.zhjwork.online/v1/translate"
+global youdaoApiString:="https://deepl.zhjwork.online/translate"
 
 
 
