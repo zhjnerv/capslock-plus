@@ -26,11 +26,11 @@ transStart:
     ;      MsgBox, , , 文本过长，请重新选择。, 1
     ;      return 
     ;  }
-	ss:=RegExReplace(ss, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
+	;ss:=RegExReplace(ss, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
 	
 	;~ global 
 	
-	NativeString:=Trim(ss)
+	NativeString:=ss ;Trim(ss)
 
 transGui:
 ;~ WinClose, 有道翻译
@@ -147,8 +147,8 @@ return
 ButtonOK:
 Gui, Submit, NoHide
 
-TransEdit:=RegExReplace(TransEdit, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
-NativeString:=Trim(TransEdit)
+;TransEdit:=RegExReplace(TransEdit, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
+NativeString:=TransEdit ;Trim(TransEdit)
 ;~ goto, DeepLApi
 goto, transGui
 
