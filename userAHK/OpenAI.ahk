@@ -133,6 +133,7 @@ OpenAI_Api:
 
         ; 获取助手消息内容
         result := responseObject.choices[1].message.content
+        result := StrReplace(result, "`n", "`r`n")
 
         ; 显示结果
         ;MsgBox, %result%
