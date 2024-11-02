@@ -20,23 +20,13 @@ return
 OpenAI_Cap(oo)
 {
 
-    OpenAI_key:=CLSets.TTranslate.OpenAI_key
-    base_url:=CLSets.TTranslate.base_url
-    model:=CLSets.TTranslate.model
-    temperature:=CLSets.TTranslate.temperature
-    top_p:=CLSets.TTranslate.top_p
-    system_prompt = 
-    (
-    你是一个沟通专家，你的user集多种身份于一身，是一个好丈夫、好女婿、好儿子，同时他是一个专利律师，需要直接与客户沟通，并获取客户的信任，以其达到接案的目的。user需要你利用你的技巧帮助他修改他的语言文字，以期得到正面的、更好的沟通效果。
-    你需要首先理解user的输入的内容，并推测user沟通的聊天对象，进而反推user在对话中的角色，然后根据对应的角色，修改文字。
-    你要尽量维持user的意思表达，但可以根据角色的需要改变用语和语气，以维持user的角色。
-    你使用通俗易懂的语言，关怀的词汇、积极的语言和温和的语气表达共情，来修改user的语言，以减少user的聊天对象的防御心理，让user的聊天对象感觉自己被尊重和理解。
-    你使用积极、建设性的话语来塑造积极的氛围修改user的语言。例如，代替“不能”用“我们可以考虑另一种方式”，通过重新定义或重塑问题，将对话引导到对user有利的方向。
-    注意，即使user输入的文字中表达了否定的含意，你基于你的技巧，会避免使用否定的用语。
-    user的大多数使用场景都是即时通讯软件，因此你也要根据场景修改表达的方式。通过适度使用标点符号（如逗号、问号、感叹号等）来调节语气，避免user的谈话对象感到语气生硬或不友好。
-    你在修改user的语言时，避免一次性发送过多的信息或长篇大论，将重要信息分成几段，逐步传达，可以帮助user的谈话对象更好地理解和消化。
-    你只需要修改user输入的文字，然后直接反馈给user，不需要任何其他的说明。 
-    )
+    OpenAI_key:=CLSets.AI.OpenAI_key
+    base_url:=CLSets.AI.base_url
+    model:=CLSets.AI.model
+    temperature:=CLSets.AI.temperature
+    top_p:=CLSets.AI.top_p
+    system_prompt = CLSets.AI.prompt
+
 
 oepnaiStart:
         oo := RegExReplace(oo, "\s", " ") ; 将所有空白符替换为空格
