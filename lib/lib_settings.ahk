@@ -19,7 +19,7 @@ global CLSets:={} ;保存Capslock+settings.ini的各种设置
 CLSets.length:={} ;保存settings.ini中每个字段的关键词数量
 global setsChanges:={} ;保存哪些设置经过改变
 ;set.ini 里面所有字段名，有更新必须修改这里，否则会无法获取
-global iniSections:=["Global","QSearch","QRun","QWeb","TabHotString","QStyle","TTranslate","AI","Keys"]
+global iniSections:=["Global","QSearch","QRun","QWeb","TabHotString","QStyle","TTranslate","AI","Keys"] ;定义setting文件内的环境变量内容
 FileGetTime, settingsModifyTime, CapsLock+settings.ini
 
 ;init CapsLock+settingsDemo.ini and CapsLock+settings.ini

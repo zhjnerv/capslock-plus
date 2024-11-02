@@ -94,7 +94,7 @@ OpenAI_Api:
 
         ; 设置请求数据
         data["model"] := model
-        data["messages"] := [{"role": "system","content": system_prompt},{"role": "user","content": user_content}]
+        data["messages"] := [{"role": "system","content": system_prompt},{"role": "user","content": "帮我改写以下语句:(" . user_content . ")"}]
         ;data["temperature"] := temperature
         ;data["top_p"] := top_p
 
