@@ -25,7 +25,7 @@ OpenAI_Cap(oo)
     model:=CLSets.AI.model
     temperature:=CLSets.AI.temperature
     top_p:=CLSets.AI.top_p
-    system_prompt = CLSets.AI.prompt
+    system_prompt:=CLSets.AI.prompt
 
 
 oepnaiStart:
