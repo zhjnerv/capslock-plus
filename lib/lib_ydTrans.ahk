@@ -51,13 +51,12 @@ else ;IfWinNotExist,  ahk_id %transGuiHwnd% ;有道翻译
 	Gui, new, +HwndtransGuiHwnd , %lang_yd_name%
 	Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
 	Gui, Font, s10 w400, Microsoft YaHei UI ;设置字体
-	Gui, Font, s10 w400, 微软雅黑
 	gui, Add, Button, x-40 y-40 Default, OK  
 	
 	Gui, Add, Edit, x-2 y0 w504 h405 vTransEdit HwndtransEditHwnd -WantReturn , %MsgBoxStr%
 	Gui, Color, ffffff, fefefe
-	Gui, +LastFound
-	WinSet, TransColor, ffffff 210
+	Gui, Color, ffffff, fefefe ; 设置背景颜色为白色，文字颜色为浅灰色
+	WinSet, TransColor, ffffff 210 ; 设置窗口透明度，其中 210 表示透明度级别（0-255）
 	;~ MsgBox, 1
 	Gui, Show, Center w500 h402, %lang_yd_name%
 	ControlFocus, , ahk_id %transEditHwnd%

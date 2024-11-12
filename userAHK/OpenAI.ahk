@@ -12,6 +12,9 @@ global OpenAI_key, base_url, model, temperature, top_p, openaiGuiHwnd, openAI_tr
 ;确认变量
 ; MsgBox, %OpenAI_key%, %base_url%, %model%, %temperature%, %top_p% , %system_prompt%
 
+; 读取 prompt 文件内容
+
+
 setopenAIGuiActive:
 WinActivate, ahk_id %openaiGuiHwnd%
 return
@@ -26,6 +29,10 @@ OpenAI_Cap(oo)
     temperature:=CLSets.AI.temperature
     top_p:=CLSets.AI.top_p
     system_prompt:=CLSets.AI.prompt
+    FileRead, system_prompt, prompt.txt
+    ; MsgBox, %system_prompt% ;确认system_prompt数据是否正确
+
+
 
 
 oepnaiStart:
@@ -65,10 +72,10 @@ openaiGui:
         Gui, new, +HwndopenaiGuiHwnd , openai修饰
         Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
         Gui, Font, s10 w400, Microsoft YaHei UI ;设置字体
-        Gui, Font, s10 w400, 微软雅黑
+        ; Gui, Font, s10 w400, 微软雅黑
         gui, Add, Button, x-40 y-40 Default gButtonOK_OpenAI, OK  
         
-        Gui, Add, Edit, x-2 y0 w504 h405 vopenAI_transEdit HwndopenAI_transEditHwnd -WantReturn -VScroll , %OpenAIMsgBoxStr% ;注意此处的vopenAI_transEdit
+        Gui, Add, Edit, x-2 y0 w504 h405 vopenAI_transEdit HwndopenAI_transEditHwnd -WantReturn , %OpenAIMsgBoxStr% ;注意此处的vopenAI_transEdit
         Gui, Color, ffffff, fefefe
         Gui, +LastFound
         WinSet, TransColor, ffffff 210
@@ -101,7 +108,7 @@ OpenAI_Api:
         ; 将data数据转换为JSON格式
         json_data := JSON.Dump(data)
         
-        msgbox, %json_data% ;确认data数据是否正确
+        ; msgbox, %json_data% ;确认data数据是否正确
         ; 构建请求头
         http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
         post_url := base_url . "v1/chat/completions"
@@ -110,7 +117,21 @@ OpenAI_Api:
         http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
         http.Send(json_data)
         http.WaitForResponse(-1)
+        
+        if (http.status != 200) {
+            ; 获取错误信息
+            try {
+                errorMessage := JSON.Load(http.responseText).error.message
+            } catch {
+                errorMessage := "OpenAI API Error: Status " . http.status . " - " . http.statusText
+            }
+            ; 显示错误信息到 GUI
+            OpenAIMsgBoxStr := errorMessage
+            goto, setOpneai_TransText
+            return
+        }
         ; 获取响应
+        
 
         arr := http.responseBody
         pData := NumGet(ComObjValue(arr) + 8 + A_PtrSize)
@@ -128,8 +149,18 @@ OpenAI_Api:
         ; 显示结果
         ;MsgBox, %result%
         OpenAIMsgBoxStr  := result ; 将 OpenAI 返回的翻译结果赋值给 OpenAIMsgBoxStr 
+        ; MsgBox, API 返回内容: %result%
 
-        clipboard := result ;将result数据复制到剪贴板
+        ; 使用正则表达式提取 [[[]]] 包裹的内容
+        ; if RegExMatch(result, "\[{3}(.*?)\]{3}", extractedText) {
+        ;     clipboard := Trim(extractedText1) ; 将提取的内容复制到剪贴板
+        ;     MsgBox, 提取到的内容已复制到剪贴板: %extractedText1%
+        ; } else {
+        ;     ; 没有找到匹配的内容，复制原始结果
+        ;     clipboard := result
+        ;     MsgBox, 未找到 [[[]]] 包裹的内容，原始结果已复制到剪贴板: %result%
+        ; }
+        ;clipboard := result ;将result数据复制到剪贴板
             ; 显示翻译结果窗口
         goto, setOpneai_TransText
         Return
