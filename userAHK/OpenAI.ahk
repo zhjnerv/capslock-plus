@@ -160,7 +160,7 @@ OpenAI_Api:
         ;     clipboard := result
         ;     MsgBox, 未找到 [[[]]] 包裹的内容，原始结果已复制到剪贴板: %result%
         ; }
-        ;clipboard := result ;将result数据复制到剪贴板
+        clipboard := result ;将result数据复制到剪贴板
             ; 显示翻译结果窗口
         goto, setOpneai_TransText
         Return
