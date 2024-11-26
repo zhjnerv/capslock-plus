@@ -7,11 +7,13 @@
 global TransEdit,transEditHwnd,transGuiHwnd, NativeString
 
 youdaoApiInit:
-global youdaoApiString:="https://deepl.zhjwork.online/translate"
+global DeepLXApiString:=""
 
-
+; 使用setting文件中的变量
+DeepLXApiString:=ClSets.TTranslate.endpoint 
 
 ;  #Include *i youdaoApiKey.ahk
+
 
 
 setTransGuiActive:
@@ -77,8 +79,8 @@ Return
 DeepLApi:
 
 
-sendStr:=youdaoApiString
-
+sendStr:=DeepLXApiString
+; MsgBox, sendStr: %sendStr%
 ; 创建一个空对象
 data := {}
 
