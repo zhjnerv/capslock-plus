@@ -28,19 +28,78 @@ OpenAI_Cap(oo)
     model:=CLSets.AI.model
     temperature:=CLSets.AI.temperature
     top_p:=CLSets.AI.top_p
-    system_prompt:=CLSets.AI.prompt
-    FileRead, system_prompt, prompt.txt
-    ; MsgBox, %system_prompt% ;确认system_prompt数据是否正确
-
-
-
-
-oepnaiStart:
-        oo := RegExReplace(oo, "\s", " ") ; 将所有空白符替换为空格
-        user_content := Trim(oo) ; 去除首尾空格
-        ;user_content := UTF8encode(user_content) ; 转换为 UTF-8 编码
-        ; msgbox, %user_content% ;确认user_content数据是否正确
-
+    
+    ; 添加 prompt 文件选择功能
+    ; 显示选择对话框
+    Gui, PromptSelect:New, +AlwaysOnTop
+    Gui, PromptSelect:Add, Text,, 请选择要使用的 Prompt 文件(或按对应数字键):
+    Gui, PromptSelect:Add, Radio, vSelectedPrompt Checked gRadioPrompt, 1. 默认(prompt.txt)
+    Gui, PromptSelect:Add, Radio, gRadioPrompt, 2. 改写(rewrite_prompt.txt)
+    Gui, PromptSelect:Add, Radio, gRadioPrompt, 3. 翻译(translate_prompt.txt)
+    Gui, PromptSelect:Add, Radio, gRadioPrompt, 4. 总结(summarize_prompt.txt)
+    Gui, PromptSelect:Add, Radio, gRadioPrompt, 5. 润色(polish_prompt.txt)
+    Gui, PromptSelect:Add, Button, Default gConfirmPromptFile w100, 确定
+    Gui, PromptSelect:Add, Button, gCancelPromptFile x+10 w100, 取消
+    
+    ; 添加热键
+    Gui, PromptSelect:+LastFound
+    hwnd := WinExist()
+    Hotkey, IfWinActive, ahk_id %hwnd%
+    Hotkey, 1, SelectPrompt1
+    Hotkey, 2, SelectPrompt2
+    Hotkey, 3, SelectPrompt3
+    Hotkey, 4, SelectPrompt4
+    Hotkey, 5, SelectPrompt5
+    Hotkey, Escape, CancelPromptFile
+    Hotkey, Enter, ConfirmPromptFile
+    
+    Gui, PromptSelect:Show,, 选择 Prompt 文件
+    
+    ; 不使用 WinWaitClose，而是设置一个全局变量来标记选择状态
+    global promptSelectionDone := 0
+    global selectedPromptFileName := "prompt.txt"  ; 默认值
+    global selectedPromptIndex := 1  ; 默认选择第一项
+    
+    ; 等待选择完成
+    while (!promptSelectionDone) {
+        Sleep, 100
+        ; 如果等待超过10秒，使用默认值
+        static waitCount := 0
+        waitCount += 1
+        if (waitCount > 100) {  ; 10秒 = 100 * 100ms
+            promptSelectionDone := 1
+            break
+        }
+    }
+    
+    ; 禁用热键
+    Hotkey, IfWinActive, ahk_id %hwnd%
+    Hotkey, 1, Off
+    Hotkey, 2, Off
+    Hotkey, 3, Off
+    Hotkey, 4, Off
+    Hotkey, 5, Off
+    Hotkey, Escape, Off
+    Hotkey, Enter, Off
+    Hotkey, IfWinActive
+    
+    ; 读取选定的 prompt 文件
+    FileRead, system_prompt, %selectedPromptFileName%
+    
+    ; 如果读取失败，使用默认 prompt
+    if (system_prompt = "") {
+        FileRead, system_prompt, prompt.txt
+    }
+    
+    ; 重置等待计数器
+    waitCount := 0
+    
+    ; 继续原来的代码
+    oo := RegExReplace(oo, "\s", " ") ; 将所有空白符替换为空格
+    user_content := Trim(oo) ; 去除首尾空格
+    
+    ;user_content := UTF8encode(user_content) ; 转换为 UTF-8 编码
+    ; msgbox, %user_content% ;确认user_content数据是否正确
 
 openaiGui:
     ;~ WinClose, 有道翻译
@@ -190,7 +249,6 @@ return result
     
 }
 
-
 ;确保激活
 setOpenaiActive:
 IfWinExist, ahk_id %openaiGuiHwnd%
@@ -198,4 +256,67 @@ IfWinExist, ahk_id %openaiGuiHwnd%
     SetTimer, ,Off
     WinActivate, ahk_id %openaiGuiHwnd%
 }
+return
+; 添加确认 prompt 文件选择的标签
+ConfirmPromptFile:
+Gui, PromptSelect:Submit
+promptSelectionDone := 1
+
+; 根据选择的索引设置文件名
+if (selectedPromptIndex = 1) {
+    selectedPromptFileName := "prompt.txt"
+} else if (selectedPromptIndex = 2) {
+    selectedPromptFileName := "rewrite_prompt.txt"
+} else if (selectedPromptIndex = 3) {
+    selectedPromptFileName := "translate_prompt.txt"
+} else if (selectedPromptIndex = 4) {
+    selectedPromptFileName := "summarize_prompt.txt"
+} else if (selectedPromptIndex = 5) {
+    selectedPromptFileName := "polish_prompt.txt"
+}
+Gui, PromptSelect:Destroy
+return
+
+; 添加取消选择的标签
+CancelPromptFile:
+Gui, PromptSelect:Destroy
+promptSelectionDone := 1
+selectedPromptFileName := "prompt.txt"  ; 使用默认值
+return
+; 处理单选按钮变化
+RadioPrompt:
+Gui, PromptSelect:Submit, NoHide
+; 根据 SelectedPrompt 的值设置 selectedPromptIndex
+selectedPromptIndex := SelectedPrompt
+return
+
+; 数字键快捷选择
+SelectPrompt1:
+GuiControl, PromptSelect:, SelectedPrompt, 1
+selectedPromptIndex := 1
+goto, ConfirmPromptFile
+return
+
+SelectPrompt2:
+GuiControl, PromptSelect:, SelectedPrompt, 2
+selectedPromptIndex := 2
+goto, ConfirmPromptFile
+return
+
+SelectPrompt3:
+GuiControl, PromptSelect:, SelectedPrompt, 3
+selectedPromptIndex := 3
+goto, ConfirmPromptFile
+return
+
+SelectPrompt4:
+GuiControl, PromptSelect:, SelectedPrompt, 4
+selectedPromptIndex := 4
+goto, ConfirmPromptFile
+return
+
+SelectPrompt5:
+GuiControl, PromptSelect:, SelectedPrompt, 5
+selectedPromptIndex := 5
+goto, ConfirmPromptFile
 return
