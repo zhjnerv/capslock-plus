@@ -14,7 +14,17 @@ DeepLXApiString:=ClSets.TTranslate.endpoint
 
 ;  #Include *i youdaoApiKey.ahk
 
-
+; 添加语言检测函数
+IsChineseText(text) {
+    ; 检查文本是否包含中文字符
+    Loop, Parse, text
+    {
+        ; 检查每个字符是否在中文Unicode范围内 (基本汉字范围: 0x4E00-0x9FFF)
+        if (Asc(A_LoopField) >= 0x4E00 && Asc(A_LoopField) <= 0x9FFF)
+            return true
+    }
+    return false
+}
 
 setTransGuiActive:
 WinActivate, ahk_id %transGuiHwnd%
@@ -86,8 +96,15 @@ data := {}
 
 ; 添加属性
 data["text"] := NativeString
-data["source_lang"] := "EN"
-data["target_lang"] := "ZH"
+
+; 自动检测语言并设置源语言和目标语言
+if (IsChineseText(NativeString)) {
+    data["source_lang"] := "ZH"
+    data["target_lang"] := "EN"
+} else {
+    data["source_lang"] := "EN"
+    data["target_lang"] := "ZH"
+}
 
 ; 将 JSON 对象转换为字符串
 json_data := JSON.Dump(data)
