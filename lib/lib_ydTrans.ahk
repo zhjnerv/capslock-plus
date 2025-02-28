@@ -121,7 +121,10 @@ if (transJson.code = 200) {
 	;~MsgBox, %NativeString% 
     ; 构建要显示的消息字符串
 	MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
-    MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n" ; 注意第二行开始，不使用分号而是使用句号
+    
+    ; 保留译文中的换行符，不进行格式处理
+    MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
+    
     if (alternativeTranslations.MaxIndex() > 0) {
         MsgBoxStr .= "次要译文："
         Loop, % alternativeTranslations.MaxIndex() {
