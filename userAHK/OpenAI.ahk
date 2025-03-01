@@ -1,13 +1,12 @@
 ﻿#Include ../lib/lib_json.ahk ;引入json解析文件
 
-
 ;指定文件编码
 #Persistent
 FileEncoding, UTF-8
 
 OpenAIApiInit:
-global OpenAI_key, base_url, model, temperature, top_p, openaiGuiHwnd, openAI_transEditHwnd, openAI_transEdit, system_prompt, user_content
-
+global OpenAI_key, base_url, model, temperature, top_p, openaiGuiHwnd, openAI_transEditHwnd, openAI_transEdit
+global system_prompt, user_content, promptSelectionDone, selectedPromptFileName, selectedPromptIndex
 
 setopenAIGuiActive:
 WinActivate, ahk_id %openaiGuiHwnd%
@@ -15,6 +14,7 @@ return
 
 OpenAI_Cap(oo)
 {
+    ; 移除全局声明，因为已经在开头声明过了
     OpenAI_key:=CLSets.AI.OpenAI_key
     base_url:=CLSets.AI.base_url
     model:=CLSets.AI.model
@@ -23,9 +23,16 @@ OpenAI_Cap(oo)
     
     ; 预处理输入文本
     oo := RegExReplace(oo, "\s+", " ") ; 将所有空白符替换为空格
+    MsgBox, 输入内容：%oo%
     user_content := Trim(oo) ; 去除首尾空格
     
-    ; 添加 prompt 文件选择功能
+    ; 启动Prompt选择流程
+    ShowPromptSelection()
+}
+
+;单独的显示prompt选择框的函数
+ShowPromptSelection()
+{
     ; 显示选择对话框
     Gui, PromptSelect:New, +AlwaysOnTop
     Gui, PromptSelect:Add, Text,, 请选择要使用的 Prompt 文件(或按对应数字键) ;两个逗号是跳过了一个宽度参数
@@ -79,6 +86,15 @@ OpenAI_Cap(oo)
     Hotkey, Enter, Off
     Hotkey, IfWinActive
     
+    Gui, PromptSelect:Destroy
+    
+    ; 重置等待计数器
+    waitCount := 0
+    
+}
+;专门用来处理API请求的函数
+CallOpenAIAPI()
+{
     ; 读取选定的 prompt 文件并继续执行
     FileRead, system_prompt, %A_WorkingDir%\prompt\%selectedPromptFileName%
     
@@ -86,10 +102,7 @@ OpenAI_Cap(oo)
     if (system_prompt = "") {
         FileRead, system_prompt, %A_WorkingDir%\prompt\prompt.txt
     }
-    
-    ; 重置等待计数器
-    waitCount := 0
-    
+
     ; 显示处理中的对话框
     OpenAIMsgBoxStr := user_content ? "正在修改……" : ""
     
@@ -107,7 +120,7 @@ OpenAI_Cap(oo)
         Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
         Gui, Font, s10 w400, Microsoft YaHei UI ;设置字体
         gui, Add, Button, x-40 y-40 Default gButtonOK_OpenAI, OK  
-        
+
         Gui, Add, Edit, x-2 y0 w504 h405 vopenAI_transEdit HwndopenAI_transEditHwnd -WantReturn , %OpenAIMsgBoxStr% ;注意此处的vopenAI_transEdit
         Gui, Color, ffffff, fefefe
         Gui, +LastFound
@@ -129,7 +142,7 @@ OpenAI_Cap(oo)
 
         ; 将data数据转换为JSON格式
         json_data := JSON.Dump(data)
-        
+
         ; 构建请求头
         http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
         post_url := base_url . "v1/chat/completions"
@@ -138,7 +151,7 @@ OpenAI_Cap(oo)
         http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
         http.Send(json_data)
         http.WaitForResponse(-1)
-        
+
         if (http.status != 200) {
             ; 获取错误信息
             try {
@@ -167,7 +180,7 @@ OpenAI_Cap(oo)
             OpenAIMsgBoxStr := result
             clipboard := result ;将result数据复制到剪贴板
         }
-        
+
         ; 更新GUI显示
         ControlSetText, , %OpenAIMsgBoxStr%, ahk_id %openAI_transEditHwnd%
         ControlFocus, , ahk_id %openAI_transEditHwnd%
@@ -201,7 +214,8 @@ if (selectedPromptIndex = 1) {
 } else if (selectedPromptIndex = 5) {
     selectedPromptFileName := "polish_prompt.txt"
 }
-Gui, PromptSelect:Destroy
+;在选择好文件之后，立即调用API请求相关的函数
+CallOpenAIAPI()
 return
 
 ; 添加取消选择的标签
@@ -257,5 +271,5 @@ openAI_transEdit := RegExReplace(openAI_transEdit, "\s", " ")
 user_content := Trim(openAI_transEdit)
 
 ; 重新调用 OpenAI_Cap 函数处理新文本
-OpenAI_Cap(user_content)
+CallOpenAIAPI()
 return
