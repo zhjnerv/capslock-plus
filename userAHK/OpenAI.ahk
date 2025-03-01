@@ -9,16 +9,9 @@ OpenAIApiInit:
 global OpenAI_key, base_url, model, temperature, top_p, openaiGuiHwnd, openAI_transEditHwnd, openAI_transEdit, system_prompt, user_content
 
 
-;确认变量
-; MsgBox, %OpenAI_key%, %base_url%, %model%, %temperature%, %top_p% , %system_prompt%
-
-; 读取 prompt 文件内容
-
-
 setopenAIGuiActive:
 WinActivate, ahk_id %openaiGuiHwnd%
 return
-
 
 OpenAI_Cap(oo)
 {
@@ -29,13 +22,13 @@ OpenAI_Cap(oo)
     top_p:=CLSets.AI.top_p
     
     ; 预处理输入文本
-    oo := RegExReplace(oo, "\s", " ") ; 将所有空白符替换为空格
+    oo := RegExReplace(oo, "\s+", " ") ; 将所有空白符替换为空格
     user_content := Trim(oo) ; 去除首尾空格
     
     ; 添加 prompt 文件选择功能
     ; 显示选择对话框
     Gui, PromptSelect:New, +AlwaysOnTop
-    Gui, PromptSelect:Add, Text,, 请选择要使用的 Prompt 文件(或按对应数字键):
+    Gui, PromptSelect:Add, Text,, 请选择要使用的 Prompt 文件(或按对应数字键) ;两个逗号是跳过了一个宽度参数
     Gui, PromptSelect:Add, Radio, vSelectedPrompt Checked gRadioPrompt, 1. 默认(prompt.txt)
     Gui, PromptSelect:Add, Radio, gRadioPrompt, 2. 改写(rewrite_prompt.txt)
     Gui, PromptSelect:Add, Radio, gRadioPrompt, 3. 翻译(translate_prompt.txt)

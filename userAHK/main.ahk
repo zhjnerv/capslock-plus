@@ -23,24 +23,24 @@ Clipboard := "http://ouo.io/qs/16EB70rI?s=" . Clipboard
 Return
 }
 
-keyFunc_OpenAI(){
-  global
-  selText:=getSelText()
-  if(selText)
+keyFunc_OpenAI(){ ;定义一个函数，函数名为keyFunc_OpenAI
+  global ;声明全局变量
+  selText:=getSelText() ;获取选中的文本
+  if(selText) ;如果选中的文本不为空，则调用OpenAI_Cap函数
   {
-    OpenAI_Cap(selText)
+    OpenAI_Cap(selText) ;调用OpenAI_Cap函数
   }
-  else
+  else ;如果选中的文本为空
   {
-      ClipboardOld:=ClipboardAll
-      Clipboard:=""
-      SendInput, ^{Left}^+{Right}^{insert}
-      ClipWait, 0.05
-      selText:=Clipboard
-      OpenAI_Cap(selText)
-      Clipboard:=ClipboardOld
+      ClipboardOld:=ClipboardAll ;保存剪贴板内容
+      Clipboard:="" ;清空剪贴板内容
+      SendInput, ^{Up}+^{Down}^{insert}  ;模拟按键：Ctrl+Up移到段落开头，然后Ctrl+Shift+Down选中整个段落，最后Ctrl+Insert复制选中内容
+      ClipWait, 0.05 ;等待剪贴板内容变化
+      selText:=Clipboard ;将剪贴板内容赋值给selText变量
+      OpenAI_Cap(selText) ;调用OpenAI_Cap函数处理selText变量
+      Clipboard:=ClipboardOld ;将剪贴板内容恢复为之前保存的内容
   }
   ;WinActivate, ahk_id %openaiGuiHwnd%
-  SetTimer, setopenAIGuiActive, -400
-  Return
+  SetTimer, setopenAIGuiActive, -400 ;设置一个定时器，每隔400毫秒执行一次setopenAIGuiActive函数
+  Return 
 }
