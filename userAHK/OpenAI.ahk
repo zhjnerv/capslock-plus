@@ -23,7 +23,7 @@ OpenAI_Cap(oo)
     
     ; 预处理输入文本
     oo := RegExReplace(oo, "\s+", " ") ; 将所有空白符替换为空格
-    MsgBox, 输入内容：%oo%
+    ; MsgBox, 输入内容：%oo%
     user_content := Trim(oo) ; 去除首尾空格
     
     ; 启动Prompt选择流程
@@ -48,11 +48,11 @@ ShowPromptSelection()
     Gui, PromptSelect:+LastFound
     hwnd := WinExist()
     Hotkey, IfWinActive, ahk_id %hwnd%
-    Hotkey, 1, SelectPrompt1
-    Hotkey, 2, SelectPrompt2
-    Hotkey, 3, SelectPrompt3
-    Hotkey, 4, SelectPrompt4
-    Hotkey, 5, SelectPrompt5
+    ; Hotkey, 1, SelectPrompt1
+    ; Hotkey, 2, SelectPrompt2
+    ; Hotkey, 3, SelectPrompt3
+    ; Hotkey, 4, SelectPrompt4
+    ; Hotkey, 5, SelectPrompt5
     Hotkey, Escape, CancelPromptFile
     Hotkey, Enter, ConfirmPromptFile
     
@@ -77,11 +77,11 @@ ShowPromptSelection()
     
     ; 禁用热键
     Hotkey, IfWinActive, ahk_id %hwnd%
-    Hotkey, 1, Off
-    Hotkey, 2, Off
-    Hotkey, 3, Off
-    Hotkey, 4, Off
-    Hotkey, 5, Off
+    ; Hotkey, 1, Off
+    ; Hotkey, 2, Off
+    ; Hotkey, 3, Off
+    ; Hotkey, 4, Off
+    ; Hotkey, 5, Off
     Hotkey, Escape, Off
     Hotkey, Enter, Off
     Hotkey, IfWinActive
@@ -233,41 +233,41 @@ selectedPromptIndex := SelectedPrompt
 return
 
 ; 数字键快捷选择
-SelectPrompt1:
-GuiControl, PromptSelect:, SelectedPrompt, 1
-selectedPromptIndex := 1
-goto, ConfirmPromptFile
-return
+; SelectPrompt1:
+; GuiControl, PromptSelect:, SelectedPrompt, 1
+; selectedPromptIndex := 1
+; goto, ConfirmPromptFile
+; return
 
-SelectPrompt2:
-GuiControl, PromptSelect:, SelectedPrompt, 2
-selectedPromptIndex := 2
-goto, ConfirmPromptFile
-return
+; SelectPrompt2:
+; GuiControl, PromptSelect:, SelectedPrompt, 2
+; selectedPromptIndex := 2
+; goto, ConfirmPromptFile
+; return
 
-SelectPrompt3:
-GuiControl, PromptSelect:, SelectedPrompt, 3
-selectedPromptIndex := 3
-goto, ConfirmPromptFile
-return
+; SelectPrompt3:
+; GuiControl, PromptSelect:, SelectedPrompt, 3
+; selectedPromptIndex := 3
+; goto, ConfirmPromptFile
+; return
 
-SelectPrompt4:
-GuiControl, PromptSelect:, SelectedPrompt, 4
-selectedPromptIndex := 4
-goto, ConfirmPromptFile
-return
+; SelectPrompt4:
+; GuiControl, PromptSelect:, SelectedPrompt, 4
+; selectedPromptIndex := 4
+; goto, ConfirmPromptFile
+; return
 
-SelectPrompt5:
-GuiControl, PromptSelect:, SelectedPrompt, 5
-selectedPromptIndex := 5
-goto, ConfirmPromptFile
-return
+; SelectPrompt5:
+; GuiControl, PromptSelect:, SelectedPrompt, 5
+; selectedPromptIndex := 5
+; goto, ConfirmPromptFile
+; return
 
 ; 添加按钮处理函数
 ButtonOK_OpenAI:
 Gui, Submit, NoHide
 ; 获取 Edit 控件中的文本，并去除多余空格
-openAI_transEdit := RegExReplace(openAI_transEdit, "\s", " ")
+openAI_transEdit := RegExReplace(openAI_transEdit, "\s+", " ") ;20250302增加了一个加号不知道是为什么。
 user_content := Trim(openAI_transEdit)
 
 ; 重新调用 OpenAI_Cap 函数处理新文本
