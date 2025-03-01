@@ -34,13 +34,15 @@ keyFunc_OpenAI(){ ;定义一个函数，函数名为keyFunc_OpenAI
   {
       ClipboardOld:=ClipboardAll ;保存剪贴板内容
       Clipboard:="" ;清空剪贴板内容
-      SendInput, ^{Up}+^{Down}^{insert}  ;模拟按键：Ctrl+Up移到段落开头，然后Ctrl+Shift+Down选中整个段落，最后Ctrl+Insert复制选中内容
+      SendInput, ^{A}
+      sleep, 50 
+      SendInput, ^{insert}  ;模拟按键：Ctrl+Up移到段落开头，然后Ctrl+Shift+Down选中整个段落，最后Ctrl+Insert复制选中内容
       ClipWait, 1 ;增加等待时间到1秒
       selText:=Clipboard 
       
       ; 检查是否成功获取到文本
       if (selText = "") {
-          MsgBox, ❗❗未能获取到文本，请手动选择文本后再试。
+          MsgBox, nonono
           Clipboard:=ClipboardOld ;将剪贴板内容恢复为之前保存的内容
           Return
       }
