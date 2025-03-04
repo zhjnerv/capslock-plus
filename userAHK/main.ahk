@@ -42,7 +42,7 @@ keyFunc_OpenAI(){ ;定义一个函数，函数名为keyFunc_OpenAI
       
       ; 检查是否成功获取到文本
       if (selText = "") {
-          MsgBox, nonono
+          MsgBox, 16, Error , Failed to get context.
           Clipboard:=ClipboardOld ;将剪贴板内容恢复为之前保存的内容
           Return
       }
