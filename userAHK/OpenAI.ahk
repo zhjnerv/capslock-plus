@@ -138,11 +138,13 @@ CallOpenAIAPI()
 
         ; 设置请求数据
         data["model"] := model
-        data["messages"] := [{"role": "system","content": system_prompt},{"role": "user","content": "帮我改写以下语句:(" . user_content . ")"}]
+        data["messages"] := [{"role": "system","content": system_prompt},{"role": "user","content": "目标内容如下：<" . user_content . ">"}]
 
         ; 将data数据转换为JSON格式
         json_data := JSON.Dump(data)
-
+        
+        ; 显示data内容以供确认
+        ; MsgBox, % "请求数据内容：`n" . json_data
         ; 构建请求头
         http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
         post_url := base_url . "v1/chat/completions"
