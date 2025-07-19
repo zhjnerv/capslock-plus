@@ -45,51 +45,139 @@ getSelText()
     return
 }
 
-UTF8encode(str) ;UTF8转码
-{
-    SetFormat, integer, h
-    returnStr:=""
-    StrCap := StrPut(str, "CP65001")
-    VarSetCapacity(UTF8String, StrCap)
-    StrPut(str, &UTF8String, "CP65001")
+; ===============================================
+; lib_functions.ahk - 优化版本
+; 保持接口不变，提升内部实现可靠性
+; ===============================================
 
-    Loop, % StrCap - 1   ;StrPut 返回的长度中包含末尾的字符串截止符，因此必须减 1。
-    {
-        returnStr .= "%"SubStr(NumGet(UTF8String, A_Index - 1, "UChar"), 3) ; 逐字节获取，去除开头的“0x”后在前面加上"%"连接起来。
+UTF8encode(str) ; UTF8转码 - 优化版本
+{
+    if (str = "")
+        return ""
+    
+    ; 备份原始格式设置
+    oldFormat := A_FormatInteger
+    SetFormat, integer, h
+    
+    returnStr := ""
+    
+    try {
+        ; 计算所需缓冲区大小
+        StrCap := StrPut(str, "CP65001")
+        if (StrCap <= 1)  ; 只有终止符，说明字符串为空或转换失败
+            return ""
+        
+        ; 分配缓冲区
+        VarSetCapacity(UTF8String, StrCap)
+        
+        ; 执行UTF-8转换
+        actualLen := StrPut(str, &UTF8String, "CP65001")
+        if (actualLen <= 1)
+            return ""
+        
+        ; 逐字节转换为百分号编码
+        Loop, % actualLen - 1  ; 减1排除终止符
+        {
+            byteVal := NumGet(UTF8String, A_Index - 1, "UChar")
+            hexStr := SubStr(byteVal, 3)  ; 移除 "0x" 前缀
+            
+            ; 确保十六进制是两位数
+            if (StrLen(hexStr) = 1)
+                hexStr := "0" . hexStr
+                
+            returnStr .= "%" . hexStr
+        }
+    } catch e {
+        ; 转换失败时返回空字符串
+        returnStr := ""
+    } finally {
+        ; 恢复原始格式设置
+        SetFormat, integer, %oldFormat%
     }
-    ;~ MsgBox, % returnStr ; 显示“E4B8AD”，前面附加“0x”就变成十六进制了。
+    
     return returnStr
 }
 
-; 可靠的URL编码函数
-UrlEncode(str) {
-    ; 定义需要编码的字符映射
-    encodeMap := {" ": "%20", "#": "%23", "%": "%25", "&": "%26"
-                , "+": "%2B", "=": "%3D", "?": "%3F", "/": "%2F"
-                , ":": "%3A", ";": "%3B", "<": "%3C", ">": "%3E"
-                , "[": "%5B", "]": "%5D", "{": "%7B", "}": "%7D"
-                , "|": "%7C", "\": "%5C", "^": "%5E", "~": "%7E"
-                , "`": "%60", """": "%22", "'": "%27", ",": "%2C"}
+URLencode(str) ; 用于链接的话只要符号转换就行。需要全部转换的，用UTF8encode() - 优化版本
+{
+    if (str = "")
+        return ""
+    
+    ; 使用关联数组提高查找效率，并添加更多需要编码的字符
+    static encodeMap
+    if (!encodeMap) {
+        encodeMap := {}
+        
+        ; 原有的字符映射
+        chars := ["!", "#", "$", "&", "'", "(", ")", "*", "+", ",", ":", ";", "=", "?", "@", "[", "]"]
+        codes := ["%21", "%23", "%24", "%26", "%27", "%28", "%29", "%2A", "%2B", "%2C", "%3A", "%3B", "%3D", "%3F", "%40", "%5B", "%5D"]
+        
+        ; 添加常见的其他需要编码的字符
+        chars.Push(" ", "<", ">", "{", "}", "|", "\", "^", "~", "`", """")
+        codes.Push("%20", "%3C", "%3E", "%7B", "%7D", "%7C", "%5C", "%5E", "%7E", "%60", "%22")
+        
+        ; 建立映射关系
+        Loop, % chars.MaxIndex()
+        {
+            encodeMap[chars[A_Index]] := codes[A_Index]
+        }
+    }
     
     result := ""
+    
+    ; 逐字符处理
     Loop, Parse, str
     {
         char := A_LoopField
+        
         if (encodeMap.HasKey(char)) {
             result .= encodeMap[char]
         } else if (char = "`n") {
             result .= "%0A"  ; 换行符
         } else if (char = "`r") {
-            result .= "%0D"  ; 回车符
+            result .= "%0D"  ; 回车符  
         } else if (char = "`t") {
             result .= "%09"  ; 制表符
-        } else if (Asc(char) > 127) {
-            ; 处理中文等非ASCII字符
-            result .= EncodeUTF8Char(char)
         } else {
             result .= char
         }
     }
+    
+    return result
+}
+
+; ===============================================
+; 辅助函数 - 可选添加，不影响原有接口
+; ===============================================
+
+; 完整的URL编码函数（结合两者优势）
+FullURLencode(str)
+{
+    if (str = "")
+        return ""
+    
+    result := ""
+    
+    Loop, Parse, str
+    {
+        char := A_LoopField
+        asciiVal := Asc(char)
+        
+        ; ASCII字母数字和少数安全字符不编码
+        if ((asciiVal >= 48 && asciiVal <= 57)     ; 0-9
+            || (asciiVal >= 65 && asciiVal <= 90)  ; A-Z
+            || (asciiVal >= 97 && asciiVal <= 122) ; a-z
+            || char = "-" || char = "_" || char = "." || char = "~") {
+            result .= char
+        } else if (asciiVal <= 127) {
+            ; ASCII范围内的其他字符直接编码
+            result .= "%" . Format("{:02X}", asciiVal)
+        } else {
+            ; 非ASCII字符使用UTF-8编码
+            result .= UTF8encode(char)
+        }
+    }
+    
     return result
 }
 
