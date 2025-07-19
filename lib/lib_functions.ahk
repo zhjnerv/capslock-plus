@@ -61,18 +61,38 @@ UTF8encode(str) ;UTF8转码
     return returnStr
 }
 
-URLencode(str) ;用于链接的话只要符号转换就行。需要全部转换的，用UTF8encode()
-{
-    local arr1:=["!","#","$","&","'","(",")","*","+",",",":",";","=","?","@","[","]"], ;"/",
-          arr2:=["%21","%23","%24","%26","%27","%28","%29","%2a","%2b","%2c","%3a","%3b","%3d","%3f","%40","%5b","%5d"] ;"%2f",
-
-    loop, % arr1.MaxIndex()
+; 可靠的URL编码函数
+UrlEncode(str) {
+    ; 定义需要编码的字符映射
+    encodeMap := {" ": "%20", "#": "%23", "%": "%25", "&": "%26"
+                , "+": "%2B", "=": "%3D", "?": "%3F", "/": "%2F"
+                , ":": "%3A", ";": "%3B", "<": "%3C", ">": "%3E"
+                , "[": "%5B", "]": "%5D", "{": "%7B", "}": "%7D"
+                , "|": "%7C", "\": "%5C", "^": "%5E", "~": "%7E"
+                , "`": "%60", """": "%22", "'": "%27", ",": "%2C"}
+    
+    result := ""
+    Loop, Parse, str
     {
-        StringReplace, str, str, % arr1[A_Index], % arr2[A_Index], All 
+        char := A_LoopField
+        if (encodeMap.HasKey(char)) {
+            result .= encodeMap[char]
+        } else if (char = "`n") {
+            result .= "%0A"  ; 换行符
+        } else if (char = "`r") {
+            result .= "%0D"  ; 回车符
+        } else if (char = "`t") {
+            result .= "%09"  ; 制表符
+        } else if (Asc(char) > 127) {
+            ; 处理中文等非ASCII字符
+            result .= EncodeUTF8Char(char)
+        } else {
+            result .= char
+        }
     }
-    ; MsgBox, % str
-    return str
+    return result
 }
+
 
 
 checkStrType(str, fuzzy:=0)
