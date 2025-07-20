@@ -13,6 +13,7 @@
 
 #include demo.ahk
 #include OpenAI.ahk
+#include addtodo.ahk
 
 keyFunc_example1(){
     SendInput % "{TEXT}" . "http://ouo.io/qs/16EB70rI?s=" . Clipboard
@@ -67,82 +68,29 @@ keyFunc_OpenAI(){
     SetTimer, setopenAIGuiActive, -400
     Return 
 }
-; ===============================================
-; Obsidian 任务快速添加功能（简化版）
-; 依赖: lib_functions.ahk 中的 UTF8encode() 和 URLencode()
-; ===============================================
 
-; 配置区域 - 根据你的实际情况修改这些变量
-OBSIDIAN_VAULT := "newob"
-OBSIDIAN_FILE := "00-收集箱/收集箱主页.md"
-OBSIDIAN_HEADING := "外部任务入口"
 
 ; 主功能：添加任务到Obsidian
 keyFunc_addObsidianTask(){
-    ; 获取用户输入
-    InputBox, taskContent, 添加任务到Obsidian, 请输入任务内容：, , 400, 120
+    global
+    local selText := getSelText()
     
-    ; 检查用户是否取消或输入为空
-    if ErrorLevel or (taskContent = "")
-        return
-    
-    ; 添加任务
-    AddTaskToObsidian(taskContent)
-    
-    ; 简单反馈
-    TrayTip, Obsidian, 任务已添加, 2, 1
-}
-
-; 从剪贴板添加任务
-keyFunc_addObsidianTaskFromClipboard(){
-    clipContent := Clipboard
-    
-    if (clipContent = "") {
-        MsgBox, 48, 提示, 剪贴板为空
-        return
+    ; 如果没有选中文本，则尝试获取光标所在的单词
+    if (!selText)
+    {
+        local ClipboardOld := ClipboardAll
+        Clipboard := ""
+        SendInput, ^{Left}^+{Right}^c
+        ClipWait, 0.5 ; 先执行ClipWait命令
+        if (!ErrorLevel) ; 然后检查ErrorLevel判断是否成功
+            selText := Clipboard
+        Clipboard := ClipboardOld
     }
     
-    ; 清理内容
-    cleanContent := Trim(clipContent)
-    cleanContent := RegExReplace(cleanContent, "\r?\n+", " ")
-    if (StrLen(cleanContent) > 200)
-        cleanContent := SubStr(cleanContent, 1, 200) . "..."
-    
-    ; 添加任务
-    AddTaskToObsidian(cleanContent)
-    TrayTip, Obsidian, 剪贴板内容已添加, 2, 1
+    ; 如果成功获取到文本，则调用新脚本中的函数
+    if (selText)
+        addObsidianTodo(selText)
+    else
+        addObsidianTodo("") ; 即使没有文本，也打开窗口让用户手动输入
+    return
 }
-
-; 核心函数：将任务添加到Obsidian
-AddTaskToObsidian(taskContent) {
-    global OBSIDIAN_VAULT, OBSIDIAN_FILE, OBSIDIAN_HEADING
-    
-    ; 获取时间和来源
-    FormatTime, currentTime, , yyyy-MM-dd HH:mm
-    WinGetTitle, windowTitle, A
-    source := windowTitle ? windowTitle : "快捷键添加"
-    
-    ; 格式化任务（保持你原来的格式）
-    taskLine := " - [ ] " . taskContent . " 来源:" . source . " 记录于:" . currentTime . " #待处理" . "`n"
-    
-    ; 编码
-    encodedVault := URLencode(OBSIDIAN_VAULT)
-    encodedFile := UTF8encode(OBSIDIAN_FILE)
-    encodedHeading := UTF8encode(OBSIDIAN_HEADING)
-    encodedContent := UTF8encode(taskLine)
-    
-    ; 构建URI
-    uri := "obsidian://advanced-uri?vault=" . encodedVault . "&filepath=" . encodedFile . "&heading=" . encodedHeading . "&mode=append&data=" . encodedContent
-    
-    ; 执行
-    Run, %uri%
-}
-
-; ===============================================
-; 使用说明：
-; 1. 修改顶部的三个配置变量
-; 2. 在 CapsLock+settings.ini 添加：
-;    caps_t=keyFunc_addObsidianTask
-;    caps_shift_t=keyFunc_addObsidianTaskFromClipboard
-; 3. 重启CapsLock+工具
-; ===============================================
