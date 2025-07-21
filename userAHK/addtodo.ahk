@@ -54,7 +54,8 @@ TodoButtonOK:
 
 
     ; 获取时间和来源
-    FormatTime, currentTime, , yyyy-MM-dd HH:mm
+    FormatTime, currentDate, , yyyy-MM-dd
+    FormatTime, currentTime, , HH:mm
     
     sourcePart := ""
     if (AddSource = 1) { ; 检查复选框是否被选中
@@ -64,7 +65,8 @@ TodoButtonOK:
     }
 
     ; 格式化任务行
-    taskLine := "- [ ] " . finalTask . sourcePart . " 记录于:" . currentTime . " #" . OBSIDIAN_TAG . "`n"
+    taskLine := "- [ ] " . finalTask . sourcePart . " " . currentTime . " #" . OBSIDIAN_TAG . " ➕ " . currentDate . "`n"
+     
 
     ; 编码
     encodedVault := FullURLencode(OBSIDIAN_VAULT)
