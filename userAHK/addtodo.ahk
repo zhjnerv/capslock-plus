@@ -23,13 +23,14 @@ addObsidianTodo(text) {
     Gui, new, +HwndtodoGuiHwnd +LabelTodo, 添加任务到 Obsidian ; 使用 +Label 为所有GUI事件添加"Todo"前缀
     Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
     Gui, Font, s12 w400, Microsoft YaHei UI
-    Gui, Add, Button, x-40 y-40 gButtonOK, OK ; 移除 Default 属性，完全依赖 OnMessage 捕获按键
-    Gui, Add, Edit, x5 y5 w490 h190 vTodoEdit HwndtodoEditHwnd -WantReturn, %initialTaskText%
+    Gui, Add, Button, x-40 y-40 gButtonOK, OK ; 隐藏的OK按钮，用于GoSub跳转
+    Gui, Add, Edit, x5 y5 w490 h160 vTodoEdit HwndtodoEditHwnd -WantReturn, %initialTaskText%
+    Gui, Add, Checkbox, x10 y175 vAddSource, 添加来源 (当前窗口标题) ; 默认不勾选
     Gui, Color, ffffff, fefefe
-    Gui, Show, Center w500 h200, 添加任务到 Obsidian
+    Gui, Show, Center w500 h210, 添加任务到 Obsidian
     ControlFocus, , ahk_id %todoEditHwnd%
 
-    ; --- OnMessage 防火墙 ---
+    ; --- OnMessage 防火墙 ---2
     ; 监视发送到此脚本GUI线程的按键消息，这是最可靠的按键捕获方式
     OnMessage(0x100, "Todo_WM_KEYDOWN") ; 0x100 is WM_KEYDOWN
 } ; <--- 函数在这里结束
@@ -37,7 +38,7 @@ addObsidianTodo(text) {
 ; 按下回车键时触发 (标签已添加 "Todo" 前缀)
 TodoButtonOK:
     Gui, Submit, NoHide
-    Gui, Destroy
+    Gui, Destroy ; 提交变量后销毁窗口
 
     finalTask := TodoEdit
     if (Trim(finalTask) = "") {
@@ -54,11 +55,16 @@ TodoButtonOK:
 
     ; 获取时间和来源
     FormatTime, currentTime, , yyyy-MM-dd HH:mm
-    WinGetTitle, windowTitle, A
-    source := windowTitle ? Trim(windowTitle) : "快捷键添加"
+    
+    sourcePart := ""
+    if (AddSource = 1) { ; 检查复选框是否被选中
+        WinGetTitle, windowTitle, A
+        source := windowTitle ? Trim(windowTitle) : "快捷键添加"
+        sourcePart := " 来源:" . source
+    }
 
     ; 格式化任务行
-    taskLine := "- [ ] " . finalTask . " 来源:" . source . " 记录于:" . currentTime . " #" . OBSIDIAN_TAG . "`n"
+    taskLine := "- [ ] " . finalTask . sourcePart . " 记录于:" . currentTime . " #" . OBSIDIAN_TAG . "`n"
 
     ; 编码
     encodedVault := FullURLencode(OBSIDIAN_VAULT)
@@ -70,10 +76,6 @@ TodoButtonOK:
     uri := "obsidian://advanced-uri?vault=" . encodedVault . "&filepath=" . encodedFile . "&heading=" . encodedHeading . "&mode=append&data=" . encodedContent
 
     ; 执行
-    ; --- 调试步骤 ---
-    ; 显示最终生成的URI，方便检查和复制。如果此链接无法在浏览器或“运行”(Win+R)中正常工作，则说明配置有误。
-    MsgBox, 4160, 最终生成的URI (可按Ctrl+C复制), % uri
-
     Run, %uri%
     TrayTip, Obsidian, 任务已添加, 2, 1
 return
