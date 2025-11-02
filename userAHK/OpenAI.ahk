@@ -48,11 +48,11 @@ ShowPromptSelection()
     Gui, PromptSelect:+LastFound
     hwnd := WinExist()
     Hotkey, IfWinActive, ahk_id %hwnd%
-    ; Hotkey, 1, SelectPrompt1
-    ; Hotkey, 2, SelectPrompt2
-    ; Hotkey, 3, SelectPrompt3
-    ; Hotkey, 4, SelectPrompt4
-    ; Hotkey, 5, SelectPrompt5
+    Hotkey, 1, SelectPrompt1
+    Hotkey, 2, SelectPrompt2
+    Hotkey, 3, SelectPrompt3
+    Hotkey, 4, SelectPrompt4
+    Hotkey, 5, SelectPrompt5
     Hotkey, Escape, CancelPromptFile
     Hotkey, Enter, ConfirmPromptFile
     
@@ -77,11 +77,11 @@ ShowPromptSelection()
     
     ; 禁用热键
     Hotkey, IfWinActive, ahk_id %hwnd%
-    ; Hotkey, 1, Off
-    ; Hotkey, 2, Off
-    ; Hotkey, 3, Off
-    ; Hotkey, 4, Off
-    ; Hotkey, 5, Off
+    Hotkey, 1, Off
+    Hotkey, 2, Off
+    Hotkey, 3, Off
+    Hotkey, 4, Off
+    Hotkey, 5, Off
     Hotkey, Escape, Off
     Hotkey, Enter, Off
     Hotkey, IfWinActive
@@ -235,35 +235,35 @@ selectedPromptIndex := SelectedPrompt
 return
 
 ; 数字键快捷选择
-; SelectPrompt1:
-; GuiControl, PromptSelect:, SelectedPrompt, 1
-; selectedPromptIndex := 1
-; goto, ConfirmPromptFile
-; return
+SelectPrompt1:
+GuiControl, PromptSelect:, SelectedPrompt, 1
+selectedPromptIndex := 1
+goto, ConfirmPromptFile
+return
 
-; SelectPrompt2:
-; GuiControl, PromptSelect:, SelectedPrompt, 2
-; selectedPromptIndex := 2
-; goto, ConfirmPromptFile
-; return
+SelectPrompt2:
+GuiControl, PromptSelect:, SelectedPrompt, 2
+selectedPromptIndex := 2
+goto, ConfirmPromptFile
+return
 
-; SelectPrompt3:
-; GuiControl, PromptSelect:, SelectedPrompt, 3
-; selectedPromptIndex := 3
-; goto, ConfirmPromptFile
-; return
+SelectPrompt3:
+GuiControl, PromptSelect:, SelectedPrompt, 3
+selectedPromptIndex := 3
+goto, ConfirmPromptFile
+return
 
-; SelectPrompt4:
-; GuiControl, PromptSelect:, SelectedPrompt, 4
-; selectedPromptIndex := 4
-; goto, ConfirmPromptFile
-; return
+SelectPrompt4:
+GuiControl, PromptSelect:, SelectedPrompt, 4
+selectedPromptIndex := 4
+goto, ConfirmPromptFile
+return
 
-; SelectPrompt5:
-; GuiControl, PromptSelect:, SelectedPrompt, 5
-; selectedPromptIndex := 5
-; goto, ConfirmPromptFile
-; return
+SelectPrompt5:
+GuiControl, PromptSelect:, SelectedPrompt, 5
+selectedPromptIndex := 5
+goto, ConfirmPromptFile
+return
 
 ; 添加按钮处理函数
 ButtonOK_OpenAI:
