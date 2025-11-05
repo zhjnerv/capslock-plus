@@ -148,7 +148,7 @@ try
 return
 #if
 
-#If CapsLock and not WinActive("选择 Prompt 文件") and not WinActive("ahk_class AutoHotkeyGUI") ;when capslock key press and hold
+#If CapsLock ; and not WinActive("选择 Prompt 文件") and not WinActive("ahk_class AutoHotkeyGUI") ;when capslock key press and hold
 
 LAlt::return
 
