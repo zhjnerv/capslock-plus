@@ -58,6 +58,12 @@ ShowPromptSelection()
     
     Gui, PromptSelect:Show,, 选择 Prompt 文件
     
+    ; 强制重置CapsLock状态，解决KeyWait阻塞问题
+    global CapsLock, CapsLock2, ctrlZ
+    CapsLock := ""
+    CapsLock2 := ""
+    ctrlZ := ""
+    
     ; 不使用 WinWaitClose，而是设置一个全局变量来标记选择状态
     global promptSelectionDone := 0
     global selectedPromptFileName := "prompt.txt"  ; 默认值
@@ -90,6 +96,7 @@ ShowPromptSelection()
     
     ; 重置等待计数器
     waitCount := 0
+    
     
 }
 ;专门用来处理API请求的函数
@@ -258,6 +265,7 @@ GuiControl, PromptSelect:, SelectedPrompt, 4
 selectedPromptIndex := 4
 goto, ConfirmPromptFile
 return
+
 
 SelectPrompt5:
 GuiControl, PromptSelect:, SelectedPrompt, 5
