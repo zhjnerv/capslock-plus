@@ -159,6 +159,16 @@ if (transJson.code = 200) {
 
 
 setTransText:
+; 规范化换行符以确保在 Windows Edit 控件中正确显示
+; 先统一转为 `n，再统一转为 `r`n
+NativeString := StrReplace(NativeString, "`r`n", "`n")
+NativeString := StrReplace(NativeString, "`r", "`n")
+NativeString := StrReplace(NativeString, "`n", "`r`n")
+
+MsgBoxStr := StrReplace(MsgBoxStr, "`r`n", "`n")
+MsgBoxStr := StrReplace(MsgBoxStr, "`r", "`n")
+MsgBoxStr := StrReplace(MsgBoxStr, "`n", "`r`n")
+
 ControlSetText, , %MsgBoxStr%, ahk_id %transEditHwnd%
 ControlFocus, , ahk_id %transEditHwnd%
 SetTimer, setTransActive, 50
