@@ -1,83 +1,39 @@
-﻿showLoading:
-;~ global 
-;~ LoadingChar:=["—","/","|","\"]
-;~ LoadingChar:=["1","2","3","4","5","6","7","8"]
-LoadingChar:=[   "_('<------"
-                ," _('=-----"
-                ," _('<-----"
-                ,"  _('=----"
-                ,"  _('<----"
-                ,"   _('=---"
-                ,"   _('<---"
-                ,"    _('=--"
-                ,"    _('<--"
-                ,"     _('=-"
-                ,"     _('<-"
-                ,"      _(*="
-                ,"------_(*="
-                ,"------_(^<"
-                ,"------_(^<"
-                ,"------ |  "
-                ,"------>')_"
-                ,"-----=')_ "
-                ,"----->')_ "
-                ,"----=')_  "
-                ,"---->')_  "
-                ,"---=')_   "
-                ,"--->')_   "
-                ,"--=')_    "
-                ,"-->')_    "
-                ,"-=')_     "
-                ,"->')_     "
-                ,"=*)_      "
-                ,"=*)_------"
-                ,">^)_------"
-                ,">^)_------"
-                ,"  | ------"]
-;  LoadingChar:=[   "=---------"
-;                  ,"-=--------"
-;                  ,"--=-------"
-;                  ,"---=------"
-;                  ,"----=-----"
-;                  ,"-----=----"
-;                  ,"------=---"
-;                  ,"-------=--"
-;                  ,"--------=-"
-;                  ,"---------="
-;                  ,"--------=-"
-;                  ,"-------=--"
-;                  ,"------=---"
-;                  ,"-----=----"
-;                  ,"----=-----"
-;                  ,"---=------"
-;                  ,"--=-------"
-;                  ,"-=--------"]
-Gui, LoadingGui:new, HwndLoadingGuiHwnd -Caption +AlwaysOnTop +Owner
-Gui, Font, S12 C0x555555, Lucida Console ;后备字体
-Gui, Font, S12 C0x555555, Fixedsys      ;后备字体
-Gui, Font, S12 C0x555555, Courier New   ;后备字体
-Gui, Font, S12 C0x555555, Source Code Pro   ;后备字体
-Gui, Font, S12 C0x555555, Consolas
-Gui, Add, Text, HwndLoadingTextHwnd H20 W100 Center,% LoadingChar[1]
-Gui, Color, ffffff, ffffff
-Gui, LoadingGui:Show, Center NA
-;~ WinSet, TransColor, ffffff, ahk_id %LoadingGuiHwnd%
-WinSet, Transparent, 230, ahk_id %LoadingGuiHwnd%
-charIndex:=1
-loadingCharMaxIndex:=LoadingChar._MaxIndex()
-SetTimer, changeLoadingChar, 250, 777   ;优先级777
-return
+﻿; lib_loadAnimation.ahk - V2 Refactor
+; Simple loading animation on startup
 
+global LoadingGui := ""
+global LoadingText := ""
+global charIndex := 1
+global LoadingChar := ["----------", "-=--------", "--=-------", "---=------", "----=-----", "-----=----", "------=---", "-------=--", "--------=-", "---------="]
 
-hideLoading:
-SetTimer, changeLoadingChar, Off
-Gui, LoadingGui:Destroy
-return
+showLoading() {
+    global LoadingGui, LoadingText, LoadingChar, charIndex
+    
+    if (LoadingGui)
+        try LoadingGui.Destroy()
+        
+    LoadingGui := Gui("-Caption +AlwaysOnTop +Owner", "CapsLock+ Loading")
+    LoadingGui.BackColor := "FFFFFF"
+    LoadingGui.SetFont("s12 c555555", "Consolas")
+    
+    LoadingText := LoadingGui.Add("Text", "h20 w100 Center", LoadingChar[1])
+    
+    LoadingGui.Show("Center NA")
+    WinSetTransparent(230, LoadingGui)
+    
+    charIndex := 1
+    SetTimer(changeLoadingChar, 250)
+}
 
+hideLoading() {
+    SetTimer(changeLoadingChar, 0) ; Off
+    if (LoadingGui)
+        try LoadingGui.Destroy()
+}
 
-changeLoadingChar:
-charIndex:=Mod(charIndex, loadingCharMaxIndex)+1
-ControlSetText, , % LoadingChar[charIndex], ahk_id %LoadingTextHwnd%
-return
-
-
+changeLoadingChar() {
+    global charIndex, LoadingChar, LoadingText
+    charIndex := Mod(charIndex, LoadingChar.Length) + 1
+    if (LoadingText)
+        LoadingText.Value := LoadingChar[charIndex]
+}

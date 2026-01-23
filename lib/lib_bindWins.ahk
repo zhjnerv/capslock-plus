@@ -1,425 +1,470 @@
-﻿bindWinsInit:
-global winsInfos:={}
-global tapTimes:={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,btn:-1}
-global winTapedX ;winTapedX用于判断多窗口绑定的切换是哪个按键的，在CapsLock松开后winsSort()用来判定一次窗口在窗口组的位置
-global lastActiveWinId ;在用窗口激活时，现在正在激活状态的窗口id
-;标志有没获取过窗口信息，因为判断多次敲击需要等待时间，
-;超时了才执行绑定程序，在等待时间中唤醒绑定窗口会造成绑定失败，
-;所以增加一个标志，当唤醒窗口时，标志不假则立刻执行一次绑定程序
-global gettingWinInfo:=0
+﻿; lib_bindWins.ahk - V2 Refactor
+; Handles Window Binding (CapsLock + Alt + 1-9)
 
-initWinsInfos(n)
-{
-    winsInfos[n]:={}
-    winsInfos[n].class:={}
-    winsInfos[n].exe:={}
-    winsInfos[n].id:={}
-    return
+global winsInfos := Map()
+global tapTimes := Map()
+; Initialize tapTimes for keys 1-20 and 'btn'
+Loop 20 {
+  tapTimes[A_Index] := 0
+}
+tapTimes["btn"] := -1
+
+global winTapedX := -1 ; Used to determine which key was just used for switching
+global lastActiveWinId := 0
+global gettingWinInfo := 0
+global winsInfosRecorderPath := "CapsLock+winsInfosRecorder.ini"
+
+; Initialize info structure for a specific key index
+initWinsInfos(n) {
+  global winsInfos
+  winsInfos[n] := Map()
+  winsInfos[n]["class"] := []
+  winsInfos[n]["exe"] := []
+  winsInfos[n]["id"] := []
+  winsInfos[n]["bindType"] := 0
 }
 
-IfNotExist, CapsLock+winsInfosRecorder.ini
-{
-    FileAppend, %lang_winsInfosRecorderIniInit%, CapsLock+winsInfosRecorder.ini, UTF-16
-}
-lang_winsInfosRecorderIniInit:=""
+bindWinsInit() {
+  global winsInfos, winsInfosRecorderPath, tapTimes
 
-IniRead, infosSections, CapsLock+winsInfosRecorder.ini, , , %A_Space%
-sectionArr:=StrSplit(infosSections,"`n")
-loop, % tapTimes.MaxIndex() ;+1：把索引从0开始换成1开始
-    initWinsInfos(A_index)
-;  {
-;  		_t:="group" . A_index-1 ;-1：把索引从1开始换成0开始
-;      winsInfos[_t]:={}
-;      winsInfos[_t].class:={}
-;      winsInfos[_t].exe:={}
-;      winsInfos[_t].id:={}
-;  }
-;取出winsInfosRecorder.ini里的数据，数组存着
-for sectionKey,sectionValue in sectionArr
-{
-    ;~ winsInfos[sectionValue].length:=0
-    IniRead, infosKeys, CapsLock+winsInfosRecorder.ini, %sectionValue%, , %A_Space%
-    infosKeys:=RegExReplace(infosKeys, "m`n)=.*$")
-    keyArr:=StrSplit(infosKeys,"`n")
-    for key,keyValue in keyArr
-    {
-        IniRead, infos, CapsLock+winsInfosRecorder.ini, %sectionValue%, %keyValue%, %A_Space%
-        if(keyValue="bindType") ;如果是bindType则直接记录，否则是class,exe,id，再开多一维数组记录
-        {
-            winsInfos[sectionValue].bindType:=infos
+  if !FileExist(winsInfosRecorderPath) {
+    try FileAppend("", winsInfosRecorderPath, "UTF-16")
+  }
+
+  ; Initialize maps for 1-20
+  Loop 20 {
+    initWinsInfos(A_Index)
+  }
+
+  try {
+    infosSections := IniRead(winsInfosRecorderPath)
+  } catch {
+    infosSections := ""
+  }
+
+  sectionArr := StrSplit(infosSections, "`n")
+
+  for sectionValue in sectionArr {
+    if (sectionValue == "")
+      continue
+
+    try {
+      infosKeys := IniRead(winsInfosRecorderPath, sectionValue)
+    } catch {
+      continue
+    }
+
+    ; sectionValue is the key index (e.g. "1", "2")
+    ; But code below uses sectionValue as index.
+    if (!IsInteger(sectionValue))
+      continue
+
+    n := Integer(sectionValue)
+    if (!winsInfos.Has(n))
+      initWinsInfos(n)
+
+    keyArr := StrSplit(infosKeys, "`n")
+
+    for keyValue in keyArr {
+      val := StrSplit(keyValue, "=")
+      if (val.Length < 2)
+        continue
+
+      k := val[1]
+      v := val[2]
+
+      if (k == "bindType") {
+        winsInfos[n]["bindType"] := Integer(v)
+      } else {
+        ; format: class_0, exe_1, id_0
+        parts := StrSplit(k, "_")
+        if (parts.Length == 2) {
+          type := parts[1] ; class, exe, id
+          idx := Integer(parts[2]) + 1 ; V1 0-based -> V2 1-based logic
+
+          if (type == "class" || type == "exe" || type == "id") {
+            ; Ensure array is large enough?
+            ; V2 arrays handle inserts, but better to just push or set direct if index known.
+            ; Since ini might not be ordered, direct assignment is safer if we pre-fill?
+            ; Let's just use direct assignment but be careful of gaps.
+            ; V1 code used pseudo-arrays.
+            ; To match V1 logic: "index" in ini is 0-based.
+
+            ; Adjust array size if needed (simplistic approach: direct set allowed in Map, but here it's Array)
+            ; Arrays in V2 are strictly indexed 1..Length.
+            ; If we get "id_5" before "id_0", simply setting arr[6] throws if length < 5.
+            ; So we should parse everything first or just use a temporary Map then convert to Array?
+            ; Or just use Map for these internals?
+            ; winsInfos[n][type] is [] (Array).
+
+            ; Let's assume sequential reading mostly, but better to use Map for temporary loading if indices are sparse (unlikely for valid data).
+            ; Actually, let's use the .Push() approach if indices are 0, 1, 2... sorted.
+            ; But IniRead order isn't guaranteed.
+
+            ; Re-read specific keys by expected index might be safer than iterating keys.
+            ; But iterating keys is faster.
+
+            ; Let's try to set it.
+            if (winsInfos[n][type].Length < idx) {
+              winsInfos[n][type].Length := idx
+            }
+            winsInfos[n][type][idx] := v
+          }
         }
-        else
-        {
-            ni:=StrSplit(keyValue, "_") ;name and id
-            winsInfos[sectionValue][ni.1][ni.2]:=infos
-        }
-    }
-}
-
-return
-;=function=start============================================================================
-getWinInfo(btnx, bindType)
-{
-  winId:=WinExist("A") ;获取id
-  WinGetClass, winClass, ahk_id %winId% ;获取该id窗口的class
-  WinGet, winExe, ProcessPath, ahk_id %winId% ;获取该id窗口的path
-  infosGx:=winsInfos[btnx] ;记录到窗口绑定变量
-  if(bindType==1) ;如果是单窗口绑定
-  {
-    ;~ if(winId==infosGx.id.0) ;如果重复绑定，不执行
-      ;~ return
-    infosGx.bindType:=1
-    infosGx.id.0:=winId
-    infosGx.class.0:=winClass
-    infosGx.exe.0:=winExe
-    IfExist, CapsLock+winsInfosRecorder.ini
-    { 
-      IniWrite, 1, CapsLock+winsInfosRecorder.ini, %btnx%, bindType		;写入bindType到ini
-      IniWrite, %winClass%, CapsLock+winsInfosRecorder.ini, %btnx%, class_0 ;写入class到ini
-      IniWrite, %winExe%, CapsLock+winsInfosRecorder.ini, %btnx%, exe_0 ;写入path到ini
-      IniWrite, %winId%, CapsLock+winsInfosRecorder.ini, %btnx%, id_0		;写入id到ini
-    }
-    else
-    {
-      MsgBox, %lang_bw_noWIRini%
-      return
-    }
-    loop, % infosGx.id.MaxIndex() ;除了第0个，其他都删掉
-    {
-      ;~ SendInput, % A_Index
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, class_%A_Index%
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, exe_%A_Index%
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, id_%A_Index%
-      infosGx.class.remove(1)
-      infosGx.exe.remove(1)
-      infosGx.id.remove(1)
-    }
-    ;~ infosGx.length:=1
-    return
-  }
-  
-  else if(bindType==2) ;如果多窗口绑定
-  {
-    if(infosGx.bindType==3) ;如果现在的绑定模式是3，先清空，再绑上第一个窗口
-    {
-      infosGx.class.0:=winClass
-      infosGx.exe.0:=winExe
-      infosGx.id.0:=winId
-      
-      IniWrite, %winClass%, CapsLock+winsInfosRecorder.ini, %btnx%, class_0 ;写入class到ini
-      IniWrite, %winExe%, CapsLock+winsInfosRecorder.ini, %btnx%, exe_0 ;写入path到ini
-      IniWrite, %winId%, CapsLock+winsInfosRecorder.ini, %btnx%, id_0		;写入id到ini
-
-      loop, % infosGx.id.MaxIndex() ;除了第0个，其他都删掉
-      {
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, class_%A_Index%
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, exe_%A_Index%
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, id_%A_Index%
-        infosGx.class.remove(1)
-        infosGx.exe.remove(1)
-        infosGx.id.remove(1)
       }
-      infosGx.bindType:=1
     }
-    else ;否则就是模式1或2，直接在现有窗口基础上添加就行
-    {
-      index:=infosGx.id.MaxIndex()+1
-      loop, % index ;查重，如果是已有的窗口，不添加
-      {
-        if(winId==infosGx.id[A_Index-1])
-          return
-      }
-      ;~ SendInput, % index
-      infosGx.class.insert(winClass)
-      infosGx.exe.insert(winExe)
-      infosGx.id.insert(winId)
-      
-      IniWrite, %winClass%, CapsLock+winsInfosRecorder.ini, %btnx%, class_%index% ;写入class到ini
-      IniWrite, %winExe%, CapsLock+winsInfosRecorder.ini, %btnx%, exe_%index% ;写入path到ini
-      IniWrite, %winId%, CapsLock+winsInfosRecorder.ini, %btnx%, id_%index%		;写入id到ini
-      
-      infosGx.bindType:=2
-    }
-    IniWrite, 2, CapsLock+winsInfosRecorder.ini, %btnx%, bindType		;写入bindType到ini
+
+    ; Filter out empty slots if any?
   }
-  
-  else if(bindType==3) ;如果单程序全窗口绑定
-  {
-    infosGx.bindType:=3
-    WinGet, winList, List, ahk_class %winClass% ahk_exe %winExe%
-    uselessLength:=infosGx.id.MaxIndex()+1-winList ;多余无用的数据有多少条(原本的-新增的)
-    infosGx.class.0:=winClass
-    infosGx.exe.0:=winExe
-    loop, % winList ;全部id分配到变量里
-    {
-      infosGx.id[A_Index-1]:=winList%A_Index%
-    }
-    IniWrite, %winClass%, CapsLock+winsInfosRecorder.ini, %btnx%, class_0 ;写入class到ini
-    IniWrite, %winExe%, CapsLock+winsInfosRecorder.ini, %btnx%, exe_0 ;写入path到ini
-    loop, % winList ;全部id写到ini里， 不知道写入会不会造成程序等待，所以和分配变量分开两个loop进行
-    {
-      index:=A_Index-1
-      IniWrite, % winList%A_Index%, CapsLock+winsInfosRecorder.ini, %btnx%, id_%index%		;写入id到ini
-    }
-    loop, % uselessLength ;除了前面刚刚写入的，其他有多的话都删掉
-    {
-      index:=winList+uselessLength-A_Index
-      ;~ SendInput, % index
-      infosGx.class.remove(index)
-      infosGx.exe.remove(index)
-      infosGx.id.remove(index)
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, class_%index%
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, exe_%index%
-      IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, id_%index%
-    }
-    IniWrite, 3, CapsLock+winsInfosRecorder.ini, %btnx%, bindType		;写入bindType到ini
-    ;~ infosGx.length:=winList
-  }
-  return
 }
 
+getWinInfo(btnx, bindType) {
+  global winsInfos, winsInfosRecorderPath
 
-activateWinAction(btnx)
-{
-  ;如果正在获取窗口信息，立刻执行窗口绑定程序
-  if(gettingWinInfo)
-    gosub, doGetWinInfo
-
-  infosGx:=winsInfos[btnx]
-   ;;;;;;;;;;;;;;;;;;;;;;;;;;;如果该按键上只绑了一个窗口
-
-  if(infosGx.bindType==1)
-  {
-
-    tempId:=infosGx.id.0
-    IfWinNotExist, ahk_id %tempId%
-    {
-      tempClass:=infosGx.class.0
-      tempExe:=infosGx.exe.0
-      WinGet, tempId, ID,  ahk_exe %tempExe% ahk_class %tempClass% 
-      if(tempId)
-      {
-        IniWrite, %tempId%, CapsLock+winsInfosRecorder.ini, % btnx , id_0
-      }
-      Else
-      {
-        IfExist, %tempExe%
-        {
-          Run, %tempExe%
-        }
-        Return
-      }
-    }
-    IfWinActive, ahk_id %tempId%
-    {
-      WinMinimize, ahk_id %tempId%
-      if(lastActiveWinId!="" && lastActiveWinId!=tempId)
-        WinActivate, ahk_id %lastActiveWinId%
-      return
-    }
-
-    lastActiveWinId:=WinExist("A")
-    WinActivate, ahk_id %tempId%
+  winId := WinExist("A")
+  if (!winId)
     return
-  }
-  ;;;;;;;;;;;;如果该按键上绑了多个独立窗口
-  if(infosGx.bindType==2) 
-  {
-    winTapedX:=btnx ;将按下标记设置为当前按键
-    
-    ;变量中的窗口被关掉的清除掉
-    maxIndex:=infosGx.id.MaxIndex()
-    loop, % maxIndex+1
-    {
-      index:=maxIndex+1-A_Index
-      tempId:=infosGx.id[index]
-      IfWinNotExist, ahk_id %tempId%
-      {
-        infosGx.class.remove(index)
-        infosGx.exe.remove(index)
-        infosGx.id.remove(index)
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, class_%index%
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, exe_%index%
-        IniDelete, CapsLock+winsInfosRecorder.ini, %btnx%, id_%index%
-      }
-    }
-    
-    ;如果绑定组中只剩一个窗口，自动转换成bindType1
-    if(infosGx.id.MaxIndex()=0)
-    {
-      IniWrite, 1, CapsLock+winsInfosRecorder.ini, %btnx%, bindType		;写入bindType到ini
-      infosGx.bindType:=1
-      tempId:=infosGx.id.0
-      IfWinActive, ahk_id %tempId%
-      {
-        WinMinimize, ahk_id %tempId%
-        return
-      }
-      WinActivate, ahk_id %tempId%
-      return
-    }
-    
-    ;判断当前激活窗口id是否id组中的一个,是的话，激活它的下一个窗口，都不是的话，激活第一个
-    actWinId:=WinExist("A") 
-    loop, % infosGx.id.MaxIndex()+1
-    {
-      if(infosGx.id[A_Index-1]=actWinId)
-      {
-        if(A_index-1=infosGx.id.MaxIndex()) ;如果最后一个窗口才是激活的，那就激活第一个窗口
-        {
-          tempId:=infosGx.id.0
-          WinActivate, ahk_id %tempId%
-          return
-        }
-        tempId:=infosGx.id[A_index]
-        WinActivate, ahk_id %tempId%
-        return
-      }
-    }
-    tempId:=infosGx.id.0
-    WinActivate, ahk_id %tempId%					
-    return
-  }
-  
-  if(infosGx.bindType==3)  ;如果该按键绑定了某程序所有窗口
-  {
-    winTapedX:=btnx ;将按下标记设置为当前按键
-    tempClass:=infosGx.class.0
-    tempExe:=infosGx.exe.0
 
-    ;变量中的窗口被关掉的清除掉
-    maxIndex:=infosGx.id.MaxIndex()
-    loop, % maxIndex+1
-    {
-      index:=maxIndex+1-A_Index
-      tempId:=infosGx.id[index]
-      IfWinNotExist, ahk_id %tempId%
-      {
-        infosGx.id.remove(index) 
-      }
-    }
-    
-    ;判断现有的某程序的窗口是否增加，有的话添加到变量中
-    WinGet, winList, List, ahk_class %tempClass% ahk_exe %tempExe%
-    loop, % winList 
-    {
-      idx:=winList%A_index%
-      isExist:=0
-      loop, % infosGx.id.MaxIndex()+1
-      {
-        if(idx=infosGx.id[A_index-1])
-        {
-          isExist:=1
+  winClass := WinGetClass("ahk_id " . winId)
+  winExe := WinGetProcessPath("ahk_id " . winId)
+
+  infosGx := winsInfos[btnx]
+
+  if (bindType == 1) ; Single Window
+  {
+    infosGx["bindType"] := 1
+    infosGx["id"] := [winId]
+    infosGx["class"] := [winClass]
+    infosGx["exe"] := [winExe]
+
+    if FileExist(winsInfosRecorderPath) {
+      IniWrite(1, winsInfosRecorderPath, btnx, "bindType")
+      IniWrite(winClass, winsInfosRecorderPath, btnx, "class_0")
+      IniWrite(winExe, winsInfosRecorderPath, btnx, "exe_0")
+      IniWrite(winId, winsInfosRecorderPath, btnx, "id_0")
+
+      ; Clean up old entries (1 to ...)
+      i := 1
+      Loop {
+        if (i > 100) ; Safety break
           break
-        }
+        ; Check if key exists to delete? brute force delete safe enough
+        ; IniDelete doesn't error if key missing usually? V2 docs: "If the value cannot be written... Error"
+        ; IniDelete: "deletes a value".
+        try IniDelete(winsInfosRecorderPath, btnx, "class_" . i)
+        try IniDelete(winsInfosRecorderPath, btnx, "exe_" . i)
+        try IniDelete(winsInfosRecorderPath, btnx, "id_" . i)
+        
+        i++
       }
-      if(!isExist)
-      {
-        infosGx.id.insert(idx)
-      }
+        ; We don't know how many there were, so this loop is heuristic.
+        ; A better way is to read all keys and delete them, but AHK V2 IniDelete section is easier?
+        ; But we want to keep bindType? No, bindType is overwritten.
+        ; Wait, if we assume 1 index, we only need to write _0.
+        ; The V1 code loop: "loop, % infosGx.id.MaxIndex()" (removes others).
+
+        ; Let's just delete the section and rewrite for cleanliness?
+        ; But we just wrote key_0.
+        ; Ideally: Delete section, Write new.
+      ; Implementation choice: Delete section first, then write.
     }
-    
-    ;如果当前没有该程序的任何窗口，启动程序
-    if(infosGx.id.MaxIndex()="") 
-    {
-      IfExist, %tempExe%
-      {
-        Run, %tempExe%
-      }
-      Return
-    }
-    ;if only one windows
-    else if(infosGx.id.MaxIndex()=0)
-    {
-      tempId:=infosGx.id.0
-      IfWinActive, ahk_id %tempId%
-      {
-        WinMinimize, ahk_id %tempId%
-        return
-      }
-      WinActivate, ahk_id %tempId%
+    else {
+      MsgBox("WIR ini missing")
       return
     }
-    
-    ;判断当前激活窗口id是否id组中的一个,是的话，激活它的下一个窗口，都不是的话，激活第一个
-    actWinId:=WinExist("A") 
-    loop, % infosGx.id.MaxIndex()+1
-    {
-      if(infosGx.id[A_Index-1]=actWinId)
-      {
-        if(A_index-1=infosGx.id.MaxIndex()) ;如果最后一个窗口才是激活的，那就激活第一个窗口
-        {
-          tempId:=infosGx.id.0
-          WinActivate, ahk_id %tempId%
+  }
+  else if (bindType == 2) ; Multi Window (Group)
+  {
+    if (infosGx["bindType"] == 3) { ; If was App mode, reset
+      infosGx["bindType"] := 1
+      infosGx["class"] := [winClass]
+      infosGx["exe"] := [winExe]
+      infosGx["id"] := [winId]
+
+      ; Overwrite section
+      IniDelete(winsInfosRecorderPath, btnx)
+      IniWrite(1, winsInfosRecorderPath, btnx, "bindType")
+      IniWrite(winClass, winsInfosRecorderPath, btnx, "class_0")
+      IniWrite(winExe, winsInfosRecorderPath, btnx, "exe_0")
+      IniWrite(winId, winsInfosRecorderPath, btnx, "id_0")
+    }
+    else {
+      ; Check duplicates
+      for existingId in infosGx["id"] {
+        if (existingId == winId)
           return
+      }
+
+      infosGx["class"].Push(winClass)
+      infosGx["exe"].Push(winExe)
+      infosGx["id"].Push(winId)
+
+      idx := infosGx["id"].Length - 1 ; 0-based for INI
+
+      IniWrite(winClass, winsInfosRecorderPath, btnx, "class_" . idx)
+      IniWrite(winExe, winsInfosRecorderPath, btnx, "exe_" . idx)
+      IniWrite(winId, winsInfosRecorderPath, btnx, "id_" . idx)
+      IniWrite(2, winsInfosRecorderPath, btnx, "bindType")
+      infosGx["bindType"] := 2
+    }
+  }
+  else if (bindType == 3) ; App Group
+  {
+    infosGx["bindType"] := 3
+    ids := WinGetList("ahk_class " . winClass . " ahk_exe " . winExe)
+
+    infosGx["class"] := [winClass]
+    infosGx["exe"] := [winExe]
+    infosGx["id"] := []
+
+    ; Reset section
+    IniDelete(winsInfosRecorderPath, btnx)
+    IniWrite(3, winsInfosRecorderPath, btnx, "bindType")
+    IniWrite(winClass, winsInfosRecorderPath, btnx, "class_0")
+    IniWrite(winExe, winsInfosRecorderPath, btnx, "exe_0")
+
+    Loop ids.Length {
+      id := ids[A_Index]
+      infosGx["id"].Push(id)
+      IniWrite(id, winsInfosRecorderPath, btnx, "id_" . (A_Index - 1))
+    }
+  }
+}
+
+activateWinAction(btnx) {
+  global winsInfos, winsInfosRecorderPath, gettingWinInfo, lastActiveWinId, winTapedX
+
+  if (gettingWinInfo)
+    doGetWinInfo()
+
+  if (!winsInfos.Has(btnx))
+    return
+
+  infosGx := winsInfos[btnx]
+
+  ; Check if uninitialized
+  if (!infosGx.Has("bindType") || infosGx["bindType"] == 0)
+    return
+
+  bindType := infosGx["bindType"]
+
+  if (bindType == 1) ; Single
+  {
+    if (infosGx["id"].Length == 0)
+      return
+
+    tempId := infosGx["id"][1]
+
+    if !WinExist("ahk_id " . tempId)
+    {
+      tempClass := infosGx["class"][1]
+      tempExe := infosGx["exe"][1]
+
+      ; Try to find another window of same type
+      try {
+        tempId := WinGetID("ahk_class " . tempClass . " ahk_exe " . tempExe)
+        if (tempId) {
+          infosGx["id"][1] := tempId
+          IniWrite(tempId, winsInfosRecorderPath, btnx, "id_0")
         }
-        tempId:=infosGx.id[A_index]
-        WinActivate, ahk_id %tempId%
+      } catch {
+        tempId := 0
+      }
+
+      if (!tempId) {
+        if FileExist(tempExe) {
+          try Run(tempExe)
+        }
         return
       }
     }
-    tempId:=infosGx.id.0
-    WinActivate, ahk_id %tempId%
+
+    if WinActive("ahk_id " . tempId) {
+      WinMinimize("ahk_id " . tempId)
+      if (lastActiveWinId && WinExist("ahk_id " . lastActiveWinId) && lastActiveWinId != tempId) {
+        try WinActivate("ahk_id " . lastActiveWinId)
+      }
+      return
+    }
+
+    lastActiveWinId := WinExist("A")
+    WinActivate("ahk_id " . tempId)
     return
   }
-}
-
-;当放开CapsLock后，对窗口排序，当前激活的窗口排到窗口组的第一位
-winsSort(btnx)
-{
-  infosGx:=winsInfos[btnx]
-  loop, % infosGx.id.MaxIndex()+1
+  else if (bindType == 2) ; Group
   {
-    actWinId:=WinExist("A") 
-    if(infosGx.id[A_Index-1]=actWinId)
-    {
-      ;~ MsgBox, % infosGx.id[A_Index-1]
-      infosGx.id.insert(0,infosGx.id.remove(A_index-1)) ;将当前激活窗口移到窗口组第一个	
+    winTapedX := btnx
+
+    ; Remove closed windows
+    i := infosGx["id"].Length
+    while (i > 0) {
+      if !WinExist("ahk_id " . infosGx["id"][i]) {
+        infosGx["class"].RemoveAt(i)
+        infosGx["exe"].RemoveAt(i)
+        infosGx["id"].RemoveAt(i)
+
+        idx := i - 1 ; 0-based for INI
+        try IniDelete(winsInfosRecorderPath, btnx, "class_" . idx)
+        try IniDelete(winsInfosRecorderPath, btnx, "exe_" . idx)
+        try IniDelete(winsInfosRecorderPath, btnx, "id_" . idx)
+      }
+      i--
+    }
+
+    if (infosGx["id"].Length == 0) {
+      ; All gone
+      return
+    }
+    else if (infosGx["id"].Length == 1) {
+      ; Downgrade to Type 1
+      infosGx["bindType"] := 1
+      IniWrite(1, winsInfosRecorderPath, btnx, "bindType")
+      activateWinAction(btnx) ; Recurse as Type 1
+      return
+    }
+
+    ; Cycle Logic
+    actWinId := WinExist("A")
+    found := false
+    Loop infosGx["id"].Length {
+      if (infosGx["id"][A_Index] == actWinId) {
+        nextIdx := A_Index + 1
+        if (nextIdx > infosGx["id"].Length)
+          nextIdx := 1
+
+        WinActivate("ahk_id " . infosGx["id"][nextIdx])
+        found := true
+        break
+      }
+    }
+
+    if (!found) {
+      WinActivate("ahk_id " . infosGx["id"][1])
+    }
+    return
+  }
+  else if (bindType == 3) ; App Group
+  {
+    winTapedX := btnx
+    tempClass := infosGx["class"][1]
+    tempExe := infosGx["exe"][1]
+
+    ; Refresh List
+    ids := WinGetList("ahk_class " . tempClass . " ahk_exe " . tempExe)
+    if (ids.Length == 0) {
+      if FileExist(tempExe) {
+        Run(tempExe)
+      }
+      return
+    }
+
+    infosGx["id"] := []
+    Loop ids.Length {
+      infosGx["id"].Push(ids[A_Index])
+    }
+
+    ; Cycle Logic (Same as Type 2 basically)
+    actWinId := WinExist("A")
+    found := false
+    Loop infosGx["id"].Length {
+      if (infosGx["id"][A_Index] == actWinId) {
+        nextIdx := A_Index + 1
+        if (nextIdx > infosGx["id"].Length)
+          nextIdx := 1
+
+        WinActivate("ahk_id " . infosGx["id"][nextIdx])
+        found := true
+        break
+      }
+    }
+
+    if (!found) {
+      WinActivate("ahk_id " . infosGx["id"][1])
     }
   }
-  winTapedX:=-1 ;重置标记
-  return
 }
 
+winsSort(btnx) {
+  global winsInfos
+  if (!winsInfos.Has(btnx))
+    return
 
-tapTimes(btnx) ;判断敲击次数,绑定按键的入口函数，判断完敲击次数会调用doGetWinInfo，再调用getWinInfo
-{
-  gettingWinInfo:=1
-  SetTimer, doGetWinInfo, -500
-  tapTimes.tapBtn:=btnx ;记录按下了哪个按键
-  if(tapTimes["btn" .  btnx]<1)
-  {
-    tapTimes["btn" .  btnx]:=1
-  }
-  if(A_ThisHotkey = A_PriorHotkey && A_TimeSincePriorHotkey < 500)
-  {
-    if(tapTimes["btn" .  btnx]<2)
-    {
-      tapTimes["btn" .  btnx]:=2
-    }
-    else
-    {
-      tapTimes["btn" .  btnx]:=3
-      ;~ gosub, doGetWinInfo
+  infosGx := winsInfos[btnx]
+  actWinId := WinExist("A")
+
+  if (infosGx.Has("id") && infosGx["id"].Length > 0) {
+    Loop infosGx["id"].Length {
+      if (infosGx["id"][A_Index] == actWinId) {
+        val := infosGx["id"].RemoveAt(A_Index)
+        infosGx["id"].InsertAt(1, val)
+        break
+      }
     }
   }
-  return
+  global winTapedX := -1
 }
 
+; Function to handle key taps
+tapTimesFunc(btnx) {
+  global tapTimes, gettingWinInfo
 
+  gettingWinInfo := 1
+  SetTimer(doGetWinInfo, -500)
 
-doGetWinInfo:
-SetTimer, doGetWinInfo, Off
-winBtnx:=tapTimes.tapBtn
-tTapTimesx:=tapTimes["btn" . winBtnx]
-if(tTapTimesx>0&&winBtnx>-1)
-{
-  getWinInfo(winBtnx, tTapTimesx)
-  ;~ SendInput, % winBtnx . "@" . tTapTimesx0@2
+  if IsInteger(btnx)
+      btnx := Integer(btnx)
+
+  tapTimes["btn"] := btnx
+
+  if (tapTimes[btnx] < 1)
+    tapTimes[btnx] := 1
+
+  ; Check for rapid taps
+  if (A_ThisHotkey == A_PriorHotkey && A_TimeSincePriorHotkey < 500) {
+    if (tapTimes[btnx] < 2) {
+      tapTimes[btnx] := 2
+    } else {
+      tapTimes[btnx] := 3
+      ; ToolTip("Tap: 3 (App Mode) - Btn: " . btnx)
+      ; Trigger immediately on 3rd tap? V1 commented out gosub.
+    }
+  } else {
+     ; if (tapTimes[btnx] == 1)
+        ; ToolTip("Tap: 1 (Single) - Btn: " . btnx)
+     ; else if (tapTimes[btnx] == 2)
+        ; ToolTip("Tap: 2 (Group) - Btn: " . btnx)
+  }
 }
-tapTimes["btn" . winBtnx]:=0 ;重置敲击次数
-tapTimes.tapBtn:=-1 ;重置winBtnx
-gettingWinInfo:=0
-return
 
-;=function=end============================================================================
+doGetWinInfo() {
+  global tapTimes, gettingWinInfo
+  SetTimer(doGetWinInfo, 0) ; Off
+
+  winBtnx := tapTimes["btn"]
+  if (winBtnx == -1) {
+    gettingWinInfo := 0
+    return
+  }
+
+  if !tapTimes.Has(winBtnx) {
+      gettingWinInfo := 0
+      tapTimes["btn"] := -1
+      return
+  }
+
+  tTapTimesx := tapTimes[winBtnx]
+
+  if (tTapTimesx > 0 && winBtnx > -1) {
+    ; ToolTip("Executing Bind: Btn " . winBtnx . ", Type " . tTapTimesx)
+    getWinInfo(winBtnx, tTapTimesx)
+    ; SetTimer(RemoveToolTip, -1000)
+  }
+
+  tapTimes[winBtnx] := 0
+  tapTimes["btn"] := -1
+  gettingWinInfo := 0
+}
+
+RemoveToolTip() {
+    ToolTip()
+}

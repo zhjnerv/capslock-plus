@@ -1,52 +1,61 @@
-mouseSpeedInit:
-global mouseSpeed,OrigMouseSpeed,SPI_GETMOUSESPEED,SPI_SETMOUSESPEED
-SPI_GETMOUSESPEED = 0x70
-SPI_SETMOUSESPEED = 0x71
+; lib_mouseSpeed.ahk - V2 Refactor
+; Regulates mouse speed (Caps + Alt + Wheel)
 
+global mouseSpeed := 3
+global OrigMouseSpeed := 10
+global SPI_GETMOUSESPEED := 0x70
+global SPI_SETMOUSESPEED := 0x71
 
-mouseSpeed:=CLSets.Global.mouseSpeed!=""?CLSets.Global.mouseSpeed:3
-if(mouseSpeed<1)
-{
-    mouseSpeed:=1
-    setSettings("Global","mouseSpeed",mouseSpeed)    
-}
-else if(mouseSpeed>20)
-{
-    mouseSpeed:=20
-    setSettings("Global","mouseSpeed",mouseSpeed)
-}
-return
+mouseSpeedInit() {
+    global mouseSpeed, CLSets
 
-;改变鼠标速度
-changeMouseSpeed:
-{
-    if(GetKeyState("LAlt", "P"))
-    {
-        ; 获取鼠标当前的速度以便稍后恢复:
-        DllCall("SystemParametersInfo", UInt, SPI_GETMOUSESPEED, UInt, 0, UIntP, OrigMouseSpeed, UInt, 0)
-        settimer, stopChangeMouseSpeed, 50
-        ; 在倒数第3个参数中设置速度 (范围为 1-20):
-        ;  sendinput, % origmouseSpeed
-        DllCall("SystemParametersInfo", UInt, SPI_SETMOUSESPEED, UInt, 0, Ptr, mouseSpeed, UInt, 0)
-        settimer, changeMouseSpeed, off
+    if (CLSets.Has("Global") && CLSets["Global"].Has("mouseSpeed")) {
+        val := CLSets["Global"]["mouseSpeed"]
+        mouseSpeed := IsInteger(val) ? Integer(val) : 3
     }
-    ;如果Capslock松开
-    if(!Capslock)
-    {
-        settimer, changeMouseSpeed, off
-    }
-    return
-}
 
-stopChangeMouseSpeed:
-if(!GetKeyState("LAlt", "P") || !Capslock)
-{
-    settimer, stopChangeMouseSpeed, off
-    ;  sendinput, aaa%OrigMouseSpeed%
-    DllCall("SystemParametersInfo", UInt, 0x71, UInt, 0, Ptr, OrigMouseSpeed, UInt, 0)  ; 恢复原来的速度.
-    if(Capslock)   ;如果放开alt的时候caps还没放开，就再回去changeMouseSpeed继续监视Alt有没再次按下
-    {
-        settimer, changeMouseSpeed, 50
+    if (mouseSpeed < 1) {
+        mouseSpeed := 1
+        setSettings("Global", "mouseSpeed", mouseSpeed)
+    } else if (mouseSpeed > 20) {
+        mouseSpeed := 20
+        setSettings("Global", "mouseSpeed", mouseSpeed)
     }
 }
-return
+
+; Function to trigger speed change
+; Typically called when Caps is down + certain key combos or logic
+; V1 used a Timer. In V2 we can use the same or a logic check.
+
+changeMouseSpeed() {
+    global mouseSpeed, OrigMouseSpeed, clState
+
+    if (GetKeyState("LAlt", "P")) {
+        ; Save original
+        DllCall("SystemParametersInfo", "UInt", 0x70, "UInt", 0, "UInt*", &OrigMouseSpeed, "UInt", 0)
+
+        ; Set target
+        DllCall("SystemParametersInfo", "UInt", 0x71, "UInt", 0, "Ptr", mouseSpeed, "UInt", 0)
+
+        SetTimer(stopChangeMouseSpeed, 50)
+        SetTimer(changeMouseSpeed, 0) ; Turn off self
+    }
+
+    if (!clState) {
+        SetTimer(changeMouseSpeed, 0)
+    }
+}
+
+stopChangeMouseSpeed() {
+    global OrigMouseSpeed, clState
+
+    if (!GetKeyState("LAlt", "P") || !clState) {
+        SetTimer(stopChangeMouseSpeed, 0)
+        ; Restore
+        DllCall("SystemParametersInfo", "UInt", 0x71, "UInt", 0, "Ptr", OrigMouseSpeed, "UInt", 0)
+
+        if (clState) {
+            SetTimer(changeMouseSpeed, 50)
+        }
+    }
+}

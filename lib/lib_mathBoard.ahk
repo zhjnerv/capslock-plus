@@ -1,161 +1,131 @@
-/*
-计算板
-*/
-keyFunc_mathBoard(){
-ClipboardOld:=ClipboardAll
-Clipboard:=""
-SendInput, ^{c} ;
-ClipWait, 0.1
-if(!ErrorLevel)
-{
-    result:=clCalculate(Clipboard,res, , 1)
-    if(res="?")
-        result:=""
-}
-IfWinExist, Math Board
-{
-	ControlSetText, , %result%, ahk_id %CalcEditHwnd%
-    WinActivate, ahk_id %CalcGui%
+; lib_mathBoard.ahk - V2 Refactor
+; Math Board (Caps + F2)
 
-    sendinput, {end}
-}
-else
-{
-    Gui, mathBoard:new, hwndCalcGui, Math Board
-    Gui mathBoard:+LabelmathBoard_
-    Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs +Resize +SysMenu -Theme -ToolWindow
-    Gui, Font, s12 w400, consolas
-    ;  Gui, Font, s12 w400, Source Code Pro
-    Gui, Add, Edit, x-2 y0 h403 w604 -Wrap hwndCalcEditHwnd, %result%
-    Gui, Show, h400 w600
-    sendinput, {end}
-}
+global CalcGui := ""
+global CalcEdit := ""
+global CalcGuiHwnd := ""
 
-Sleep, 200
+keyFunc_mathBoard() {
+    global CalcGui, CalcEdit, CalcGuiHwnd
 
-Clipboard:=ClipboardOld
-CapsLock2:=""
-return
-}
-mathBoard_Size:
-WinGetPos, , ,mathBoard_W , mathBoard_H, ahk_id %CalcGui%
-;  msgbox, % mathBoard_W . "#" . mathBoard_H
-edit_w:=mathBoard_W-12
-edit_h:=mathBoard_H-37
-GuiControl, Move, %CalcEditHwnd%, w%edit_w% h%edit_h%
-return
-
-mathBoard_Close:
-mathBoard_Escape:
-Gui, Cancel
-return
-
-;-----------------------in calculator GUI start-------------
-#if WinActive("Math Board") && GetKeyState("CapsLock","T")
-u::sendinput, {7}
-i::sendinput, {8}
-o::sendinput, {9}
-j::sendinput, {4}
-k::sendinput, {5}
-l::sendinput, {6}
-m::sendinput, {1}
-,::sendinput, {2}
-.::sendinput, {3}
-space::sendinput, {0}
-RAlt::sendinput, {U+002e}
-`;::sendinput, {U+002b}
-'::sendinput, {U+002d}
-p::sendinput, {U+002a}
-/::sendinput, {U+002f}
-[::sendinput, {U+002f}
-return
-
-#IF WinActive("Math Board")
-+u::sendinput, {7}
-+i::sendinput, {8}
-+o::sendinput, {9}
-+j::sendinput, {4}
-+k::sendinput, {5}
-+l::sendinput, {6}
-+m::sendinput, {1}
-+,::sendinput, {2}
-+.::sendinput, {3}
-+space::sendinput, {0}
-+RAlt::sendinput, {U+002e}
-+`;::sendinput, {U+002b}
-+'::sendinput, {U+002d}
-+p::sendinput, {U+002a}
-+/::sendinput, {U+002f}
-+[::sendinput, {U+002f}
-
-
-NumpadEnter::
-enter::
-ClipboardOld:=ClipboardAll
-Clipboard:=""
-
-SendInput, +{Home}
-Sleep, 10
-SendInput, ^{c}
-ClipWait, 0.1
-if(!ErrorLevel)
-{
-    if(RegExMatch(Clipboard,"(?<=:\=).*;$",calResult))
-    {
-        clCalculate(Clipboard,calResult,0,1)
-        SendInput, {End}{Enter}
+    ClipboardOld := ClipboardAll()
+    A_Clipboard := ""
+    SendInput("^{c}")
+    if ClipWait(0.1) {
+        result := clCalculate(A_Clipboard, &res, 0, 1)
+        if (res == "?")
+            result := ""
+    } else {
+        result := ""
     }
-    else if(RegExMatch(Clipboard,"(?<=\=)[\deE\+\-\.a-fA-f]+$",calResult))
-    {
-        sendinput, {End}{Enter}
+
+    if (CalcGui && WinExist("ahk_id " . CalcGuiHwnd)) {
+        CalcEdit.Value := result
+        CalcGui.Show()
+        SendInput("{End}")
+    } else {
+        createMathBoard(result)
     }
-    else
-    {
-        Clipboard := clCalculate(Clipboard,calResult,0,1)
-        SendInput, ^{v}
-        Sleep, 200
-    }
+
+    Sleep(200)
+    A_Clipboard := ClipboardOld
 }
-;  }
 
+createMathBoard(initialValue) {
+    global CalcGui, CalcEdit, CalcGuiHwnd
 
-Clipboard:=ClipboardOld
-return
+    CalcGui := Gui("+AlwaysOnTop -Border +Caption +Resize +SysMenu -ToolWindow", "Math Board")
+    CalcGuiHwnd := CalcGui.Hwnd
 
-^NumpadEnter::
-^enter::
-sendinput, {enter}
-return
+    CalcGui.SetFont("s12", "consolas")
+    CalcEdit := CalcGui.Add("Edit", "x0 y0 w600 h400 -Wrap", initialValue)
 
-+NumpadEnter::
-+enter::
-ClipboardOld:=ClipboardAll
-Clipboard:=""
-SendInput, +{Home}
-Sleep, 10
-SendInput, ^{c}
-ClipWait, 0.1
-if(!ErrorLevel)
-{
-    if(RegExMatch(Clipboard,"(?<=\=)(?<!:\=)[\deE\+\-\.a-fA-f]+$",calResult))
-    {
-        sendinput, {End}
-    }
-    else
-    {
-        Clipboard := clCalculate(Clipboard,calResult,0,1)
-        SendInput, ^{v}
-        Sleep, 200
-    }
+    CalcGui.OnEvent("Size", mathBoard_Size)
+    CalcGui.OnEvent("Close", (*) => CalcGui.Hide())
+    CalcGui.OnEvent("Escape", (*) => CalcGui.Hide())
+
+    CalcGui.Show("w600 h400")
+    SendInput("{End}")
+
+    ; Internal Hotkeys for MathBoard
+    HotIfWinActive("ahk_id " . CalcGuiHwnd)
+
+    ; If CapsLock is on (logic state), enable numpad-like mapping
+    ; V1 used GetKeyState("CapsLock", "T")
+    ; Here we can use our clState too
+
+    ; Since we want this even if CapsLock is just logically used:
+
+    ; Mapping logic (Simplified from V1)
+    Hotkey("u", (*) => Send("7"))
+    Hotkey("i", (*) => Send("8"))
+    Hotkey("o", (*) => Send("9"))
+    Hotkey("j", (*) => Send("4"))
+    Hotkey("k", (*) => Send("5"))
+    Hotkey("l", (*) => Send("6"))
+    Hotkey("m", (*) => Send("1"))
+    Hotkey(",", (*) => Send("2"))
+    Hotkey(".", (*) => Send("3"))
+    Hotkey("Space", (*) => Send("0"))
+    Hotkey("RAlt", (*) => Send("{U+002e}"))
+    Hotkey(";", (*) => Send("{U+002b}"))
+    Hotkey("'", (*) => Send("{U+002d}"))
+    Hotkey("p", (*) => Send("{U+002a}"))
+    Hotkey("/", (*) => Send("{U+002f}"))
+    Hotkey("[", (*) => Send("{U+002f}"))
+
+    ; Shift versions
+    Hotkey("+u", (*) => Send("7"))
+    Hotkey("+i", (*) => Send("8"))
+    Hotkey("+o", (*) => Send("9"))
+    Hotkey("+j", (*) => Send("4"))
+    Hotkey("+k", (*) => Send("5"))
+    Hotkey("+l", (*) => Send("6"))
+    Hotkey("+m", (*) => Send("1"))
+    Hotkey("+,", (*) => Send("2"))
+    Hotkey("+.", (*) => Send("3"))
+    Hotkey("+Space", (*) => Send("0"))
+    Hotkey("+RAlt", (*) => Send("{U+002e}"))
+    Hotkey("+;", (*) => Send("{U+002b}"))
+    Hotkey("+'", (*) => Send("{U+002d}"))
+    Hotkey("+p", (*) => Send("{U+002a}"))
+    Hotkey("+/", (*) => Send("{U+002f}"))
+    Hotkey("+[", (*) => Send("{U+002f}"))
+
+    Hotkey("Enter", mathBoard_Enter)
+    Hotkey("NumpadEnter", mathBoard_Enter)
+
+    HotIf
 }
-Clipboard:=ClipboardOld
-sendinput, {enter}
-sendinput, {RAW}%calResult%
 
-;  temp := tabAction(1)
-;  ;  msgbox, % temp
-;  sendinput, {enter}%temp%
-return
-    
-#IF
-;-----------------------in calculator GUI end-------------
+mathBoard_Size(thisGui, minMax, width, height) {
+    global CalcEdit
+    CalcEdit.Move(,, width, height)
+}
+
+mathBoard_Enter(*) {
+    ClipboardOld := ClipboardAll()
+    A_Clipboard := ""
+
+    SendInput("+{Home}")
+    Sleep(10)
+    SendInput("^{c}")
+
+    if ClipWait(0.1) {
+        text := A_Clipboard
+        ; Check if it's an assignment or simple calc
+        if (RegExMatch(text, "(?<=:\=).*;$", &match)) {
+            clCalculate(text, &res, 0, 1)
+            SendInput("{End}{Enter}")
+        } else if (RegExMatch(text, "(?<=\=)[\deE\+\-\.a-fA-f]+$", &match)) {
+            SendInput("{End}{Enter}")
+        } else {
+            newText := clCalculate(text, &res, 0, 1)
+            A_Clipboard := newText
+            SendInput("^{v}")
+            Sleep(200)
+        }
+    }
+
+    A_Clipboard := ClipboardOld
+}

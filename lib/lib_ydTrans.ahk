@@ -1,198 +1,155 @@
 ﻿/*
-有道翻译
+DeepLX 翻译 (原 有道翻译 模块迁移)
 */
 
-#Include lib_json.ahk   	;引入json解析文件
+; #Include lib_json.ahk   	; 已经在 CapsLock+.ahk 中包含，或应使用 V2 内置/wrapper
+; V2 Note: Assumes standard JSON library or wrapper is available as JSON.
 
-global TransEdit,transEditHwnd,transGuiHwnd, NativeString
+global TransEdit, transEditHwnd, transGuiHwnd, NativeString, DeepLXApiString
+global transGui := ""
 
-youdaoApiInit:
-global DeepLXApiString:=""
+youdaoApiInit() {
+    global DeepLXApiString, CLSets
+    DeepLXApiString := ""
 
-; 使用setting文件中的变量
-DeepLXApiString:=ClSets.TTranslate.endpoint 
-
-;  #Include *i youdaoApiKey.ahk
+    ; 使用setting文件中的变量
+    if (CLSets.Has("TTranslate") && CLSets["TTranslate"].Has("endpoint"))
+        DeepLXApiString := CLSets["TTranslate"]["endpoint"]
+    else
+        DeepLXApiString := "http://localhost:1188/translate" ; Default DeepLX endpoint?
+}
 
 ; 添加语言检测函数
 IsChineseText(text) {
     ; 检查文本是否包含中文字符
-    Loop, Parse, text
+    Loop Parse, text
     {
         ; 检查每个字符是否在中文Unicode范围内 (基本汉字范围: 0x4E00-0x9FFF)
-        if (Asc(A_LoopField) >= 0x4E00 && Asc(A_LoopField) <= 0x9FFF)
+        if (Ord(A_LoopField) >= 0x4E00 && Ord(A_LoopField) <= 0x9FFF)
             return true
     }
     return false
 }
 
-setTransGuiActive:
-WinActivate, ahk_id %transGuiHwnd%
-return
-
 ydTranslate(ss)
 {
-transStart:
-    ;  if(StrLen(ss) >= 2000)
-    ;  {
-    ;      MsgBox, , , 文本过长，请重新选择。, 1
-    ;      return 
-    ;  }
-	;ss:=RegExReplace(ss, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
-	
-	;~ global 
-	
-	NativeString:=ss ;Trim(ss)
+    global NativeString, transGui, transGuiHwnd, transEditHwnd, lang_yd_name, lang_yd_translating
+    global DeepLXApiString
 
-transGui:
-;~ WinClose, 有道翻译
-MsgBoxStr:=NativeString?lang_yd_translating:""
+    ; if(StrLen(ss) >= 2000) ...
 
-DetectHiddenWindows, On ;可以检测到隐藏窗口
-WinGet, ifGuiExistButHide, Count, ahk_id %transGuiHwnd%
-if(ifGuiExistButHide)
-{
-	ControlSetText, , %MsgBoxStr%, ahk_id %transEditHwnd%
-	ControlFocus, , ahk_id %transEditHwnd%
-	WinShow, ahk_id %transGuiHwnd%
-}
-else ;IfWinNotExist,  ahk_id %transGuiHwnd% ;有道翻译
-{
-	;~ MsgBox, 0
-	
-	Gui, new, +HwndtransGuiHwnd , %lang_yd_name%
-	Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
-	Gui, Font, s10 w400, Microsoft YaHei UI ;设置字体
-	gui, Add, Button, x-40 y-40 Default, OK  
-	
-	Gui, Add, Edit, x-2 y0 w504 h405 vTransEdit HwndtransEditHwnd -WantReturn , %MsgBoxStr%
-	Gui, Color, ffffff, fefefe
-	Gui, Color, ffffff, fefefe ; 设置背景颜色为白色，文字颜色为浅灰色
-	WinSet, TransColor, ffffff 210 ; 设置窗口透明度，其中 210 表示透明度级别（0-255）
-	;~ MsgBox, 1
-	Gui, Show, Center w500 h402, %lang_yd_name%
-	ControlFocus, , ahk_id %transEditHwnd%
-	SetTimer, setTransActive, 50
-}
-;~ DetectHiddenWindows, On ;可以检测到隐藏窗口
+    NativeString := ss
 
-if(NativeString) ;如果传入的字符串非空则翻译
-{
-	;~ MsgBox, 2
-	SetTimer, DeepLApi, -1
-	return
-}
+    MsgBoxStr := NativeString ? (IsSet(lang_yd_translating) ? lang_yd_translating : "Translating...") : ""
 
-Return
+    DetectHiddenWindows(true)
 
-
-DeepLApi:
-
-
-sendStr:=DeepLXApiString
-; MsgBox, sendStr: %sendStr%
-; 创建一个空对象
-data := {}
-
-; 添加属性
-data["text"] := NativeString
-
-; 自动检测语言并设置源语言和目标语言
-if (IsChineseText(NativeString)) {
-    data["source_lang"] := "ZH"
-    data["target_lang"] := "EN"
-} else {
-    data["source_lang"] := "EN"
-    data["target_lang"] := "ZH"
-}
-
-; 将 JSON 对象转换为字符串
-json_data := JSON.Dump(data)
-
-whr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-
-whr.Open("POST", sendStr)
-
-;msgBox, 发送内容：%json_data%
-
-
-whr.setRequestHeader("Content-Type", "application/json")
-
-whr.Send(json_data)
-
-;~MsgBox, 发送内容：%json_data%
-afterSend:
-responseStr := whr.ResponseText
-;~MsgBox, 返回结果：%responseStr%
-
-; transJson:=JSON_from(responseStr) 
-transJson:=JSON.Load(responseStr)
-
-;MsgBox, %JSON.to(transJson)% ;弹出整个译文的json，测试用
-; 检查返回的状态码
-
-if (transJson.code = 200) {
-    ; 如果状态码是200，表示翻译成功
-    primaryTranslation := transJson.data ; 主要译文
-    alternativeTranslations := transJson.alternatives ; 次要译文列表
-	;~MsgBox, %NativeString% 
-    ; 构建要显示的消息字符串
-	MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
-    
-    ; 保留译文中的换行符，不进行格式处理
-    MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
-    
-    if (alternativeTranslations.MaxIndex() > 0) {
-        MsgBoxStr .= "次要译文："
-        Loop, % alternativeTranslations.MaxIndex() {
-            MsgBoxStr .= "`r`n" . alternativeTranslations[A_Index]
-        }
+    if (IsSet(transGui) && transGui && WinExist("ahk_id " . transGui.Hwnd))
+    {
+        try ControlSetText(MsgBoxStr, transEditHwnd)
+        try ControlFocus(transEditHwnd)
+        transGui.Show()
     }
-} else {
-    ; 如果状态码不是200，表示翻译失败，显示错误信息
-    MsgBoxStr := "错误：" . transJson.code
+    else
+    {
+        transGui := Gui("+AlwaysOnTop -Border +Caption -Disabled -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow", IsSet(lang_yd_name) ? lang_yd_name : "Translation")
+        transGuiHwnd := transGui.Hwnd
+
+        transGui.SetFont("s10 w400 c000000", "Microsoft YaHei UI")
+        
+        transGui.OnEvent("Escape", (*) => transGui.Hide())
+        transGui.OnEvent("Close", (*) => transGui.Hide())
+
+        ; Button needs an event
+        btn := transGui.Add("Button", "x-40 y-40 Default", "OK")
+        btn.OnEvent("Click", TransGuiSubmit)
+
+        transEdit := transGui.Add("Edit", "x-2 y0 w504 h405 vTransEdit -WantReturn c000000 BackgroundWhite", MsgBoxStr)
+        transEditHwnd := transEdit.Hwnd
+
+        transGui.BackColor := "White"
+        
+        transGui.Show("Center w500 h402")
+        try WinSetTransparent("Off", transGui) ; Force opaque
+        try ControlFocus(transEditHwnd)
+
+        ; SetTimer, setTransActive, 50 ; V2 approach below
+    }
+
+    if(NativeString)
+    {
+        SetTimer(DeepLApi, -1)
+    }
 }
 
-; 显示消息框
-;~MsgBox, 译文1：%MsgBoxStr%
-
-
-
-setTransText:
-; 规范化换行符以确保在 Windows Edit 控件中正确显示
-; 先统一转为 `n，再统一转为 `r`n
-NativeString := StrReplace(NativeString, "`r`n", "`n")
-NativeString := StrReplace(NativeString, "`r", "`n")
-NativeString := StrReplace(NativeString, "`n", "`r`n")
-
-MsgBoxStr := StrReplace(MsgBoxStr, "`r`n", "`n")
-MsgBoxStr := StrReplace(MsgBoxStr, "`r", "`n")
-MsgBoxStr := StrReplace(MsgBoxStr, "`n", "`r`n")
-
-ControlSetText, , %MsgBoxStr%, ahk_id %transEditHwnd%
-ControlFocus, , ahk_id %transEditHwnd%
-SetTimer, setTransActive, 50
-return 
-;================拼MsgBox显示的内容
-
-ButtonOK:
-Gui, Submit, NoHide
-
-;TransEdit:=RegExReplace(TransEdit, "\s", " ") ;把所有空白符换成空格，因为如果有回车符的话，json转换时会出错
-NativeString:=TransEdit ;Trim(TransEdit)
-;~ goto, DeepLApi
-goto, transGui
-
-return
-
+TransGuiSubmit(*) {
+    global transGui, NativeString
+    saved := transGui.Submit(false) ; NoHide
+    NativeString := saved.TransEdit
+    ydTranslate(NativeString) ; Re-trigger
 }
 
+DeepLApi() {
+    global NativeString, DeepLXApiString, transEditHwnd
 
-;确保激活
-setTransActive:
-IfWinExist, ahk_id %transGuiHwnd%
-{
-    SetTimer, ,Off
-    WinActivate, ahk_id %transGuiHwnd%
+    sendStr := DeepLXApiString
+    if (sendStr == "")
+        sendStr := "http://127.0.0.1:1188/translate" ; Fallback
+
+    data := Map()
+    data["text"] := NativeString
+
+    if (IsChineseText(NativeString)) {
+        data["source_lang"] := "ZH"
+        data["target_lang"] := "EN"
+    } else {
+        data["source_lang"] := "EN"
+        data["target_lang"] := "ZH"
+    }
+
+    json_data := JSON.stringify(data)
+
+    whr := ComObject("WinHttp.WinHttpRequest.5.1")
+
+    try {
+        whr.Open("POST", sendStr, true) ; Async? No, V1 was sync default unless specified. Let's use Sync for simplicity first or async if needed.
+        ; V1: whr.Open("POST", sendStr) -> default sync.
+        ; To avoid blocking UI, ideally async, but let's stick to simple first.
+        whr.Open("POST", sendStr, false)
+        whr.SetRequestHeader("Content-Type", "application/json")
+        whr.Send(json_data)
+
+        responseStr := whr.ResponseText
+
+        transJson := JSON.parse(responseStr)
+
+        if (transJson.Has("code") && transJson["code"] == 200) {
+            primaryTranslation := transJson["data"]
+            alternativeTranslations := transJson.Has("alternatives") ? transJson["alternatives"] : []
+
+            MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
+            MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
+
+            if (alternativeTranslations.Length > 0) {
+                MsgBoxStr .= "次要译文："
+                for alt in alternativeTranslations {
+                    MsgBoxStr .= "`r`n" . alt
+                }
+            }
+        } else {
+            code := transJson.Has("code") ? transJson["code"] : "Unknown"
+            MsgBoxStr := "错误：" . code
+        }
+    } catch Error as e {
+        MsgBoxStr := "Error: " . e.Message
+    }
+
+    ; Update UI
+    ; Normalize Line Endings
+    MsgBoxStr := StrReplace(MsgBoxStr, "`r`n", "`n")
+    MsgBoxStr := StrReplace(MsgBoxStr, "`r", "`n")
+    MsgBoxStr := StrReplace(MsgBoxStr, "`n", "`r`n")
+
+    try ControlSetText(MsgBoxStr, transEditHwnd)
+    ; try ControlFocus(transEditHwnd)
 }
-return

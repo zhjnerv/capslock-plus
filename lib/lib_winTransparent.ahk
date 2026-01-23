@@ -1,96 +1,86 @@
-winTransparentInit:
-global winTranSetting, transpWinId, allowWinTranspToggle, transp
+; lib_winTransparent.ahk - V2 Refactor
 
-; 窗口透明度
-;  transp:=CLSets.Global.mouseSpeed
+global winTranSetting := false
+global transpWinId := 0
+global allowWinTranspToggle := false
+global transp := 255
 
-return
+winTransparent() {
+    global winTranSetting, allowWinTranspToggle, transpWinId, transp
 
-winTransparent(){
-    if(!winTranSetting){ ; 按下按下后只有第一次生效
-        winTranSetting:=true
-        allowWinTranspToggle:=true
+    if (!winTranSetting) {
+        winTranSetting := true
+        allowWinTranspToggle := true
 
-        transpWinId:=WinExist("A")
-
-        WinGet, transp, Transparent, ahk_id %transpWinId%
-
-        setTimer, winTranspKeyCheck, 50
-
-        setTimer, checkIfTranspToggle, -300 ; 快速短按的话反转窗口的透明度
-    }
-    
-    return
-}
-
-
-checkIfTranspToggle:
-allowWinTranspToggle:=false
-return
-
-winTranspReduce:
-;  if(!transp)
-;      WinGet, transp, Transparent, ahk_id %transpWinId%
-if(!transp)
-    transp:=245
-transp-=10
-if(transp<15)
-    transp:=15
-
-WinSet, Transparent, %transp%, ahk_id %transpWinId%
-return
-
-
-winTranspAdd:
-;  if(!transp)
-;      WinGet, transp, Transparent, ahk_id %transpWinId%
-if(!transp or transp=255)
-    return
-
-transp+=10
-if(transp>255){
-    transp:=255
-    WinSet, Transparent, off, ahk_id %transpWinId%
-    WinSet, Redraw
-    return
-}
-
-WinSet, Transparent, %transp%, ahk_id %transpWinId%
-return
-
-
-
-winTranspKeyCheck:
-if(!GetKeyState("f4", "P") || !Capslock){
-    setTimer, checkIfTranspToggle, off ; 关闭短按切换透明度
-    setTimer, winTranspKeyCheck, off
-    
-    if(allowWinTranspToggle){
-
-        ;  WinGet, transp, Transparent, ahk_id %transpWinId%
-        if(transp){
-            WinSet, Transparent, off, ahk_id %transpWinId%
-            WinSet, Redraw
+        transpWinId := WinExist("A")
+        try {
+            val := WinGetTransparent("ahk_id " . transpWinId)
+            transp := (val == "") ? 255 : val
+        } catch {
+            transp := 255
         }
-        else
-            WinSet, Transparent, 170, ahk_id %transpWinId%
-        ;  msgbox, 0
+
+        SetTimer(winTranspKeyCheck, 50)
+        SetTimer(checkIfTranspToggle, -300) ; Short press detection
     }
-    ;  msgbox,1
-    winTranSetting:=false
-    ;  transp:=""
 }
-return
 
-#if winTranSetting
+checkIfTranspToggle() {
+    global allowWinTranspToggle
+    allowWinTranspToggle := false
+}
 
-WheelUp::
-;  send, 1
-gosub, winTranspAdd
-return
+winTranspReduce() {
+    global transp, transpWinId
+    if (transp == 255 || transp == "")
+        transp := 245
+    else
+        transp -= 10
 
-WheelDown::
-;  send, 2
-gosub, winTranspReduce
+    if (transp < 15)
+        transp := 15
 
-#if
+    try WinSetTransparent(transp, "ahk_id " . transpWinId)
+}
+
+winTranspAdd() {
+    global transp, transpWinId
+    if (transp == 255 || transp == "")
+        return
+
+    transp += 10
+    if (transp >= 255) {
+        transp := 255
+        try WinSetTransparent("Off", "ahk_id " . transpWinId)
+        try WinRedraw("ahk_id " . transpWinId)
+    } else {
+        try WinSetTransparent(transp, "ahk_id " . transpWinId)
+    }
+}
+
+winTranspKeyCheck() {
+    global winTranSetting, allowWinTranspToggle, transpWinId, transp, clState
+
+    if (!GetKeyState("F4", "P") || !clState) {
+        SetTimer(checkIfTranspToggle, 0)
+        SetTimer(winTranspKeyCheck, 0)
+
+        if (allowWinTranspToggle) {
+            if (transp < 255) {
+                try WinSetTransparent("Off", "ahk_id " . transpWinId)
+                try WinRedraw("ahk_id " . transpWinId)
+                transp := 255
+            } else {
+                transp := 170
+                try WinSetTransparent(transp, "ahk_id " . transpWinId)
+            }
+        }
+        winTranSetting := false
+    }
+}
+
+; Hotkeys in context of winTranSetting
+#HotIf winTranSetting
+WheelUp::winTranspAdd()
+WheelDown::winTranspReduce()
+#HotIf

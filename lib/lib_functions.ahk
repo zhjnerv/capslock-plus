@@ -1,223 +1,164 @@
-﻿;为了避免在IDE里Ctrl+C会复制一行，写个函数来获取
+﻿; ===============================================
+; lib_functions.ahk - V2 Refactor
+; ===============================================
+
 getSelText_testVersion()
 {
-    ClipboardOld:=ClipboardAll
-    Clipboard:=""
-    SendInput, +{Left}^{c}+{Right}
-    ClipWait, 0.1
-    if(!ErrorLevel)
+    ClipboardOld := ClipboardAll()
+    A_Clipboard := ""
+    SendInput("+{Left}^{c}+{Right}")
+    if ClipWait(0.1)
     {
-        selText:=Clipboard
-        Clipboard:=ClipboardOld
-        ;~ MsgBox, % "@" . Asc(selText) . "@"
-        ;~ MsgBox, % StrLen(selText)
-        if(Asc(selText)!=13&&StrLen(selText)>1)
+        selText := A_Clipboard
+        A_Clipboard := ClipboardOld
+        if(Ord(selText)!=13 && StrLen(selText)>1)
         {
             return SubStr(selText, 2)
         }
         else
         {
-            return
+            return ""
         }
     }
-    Clipboard:=ClipboardOld
-    return
+    A_Clipboard := ClipboardOld
+    return ""
 }
 
 
 getSelText()
 {
-    ClipboardOld:=ClipboardAll
-    Clipboard:=""
-    SendInput, ^{insert}
-    ClipWait, 0.1
-    if(!ErrorLevel)
+    ClipboardOld := ClipboardAll()
+    A_Clipboard := ""
+    SendInput("^{insert}") ; or ^c
+    if ClipWait(0.1)
     {
-        selText:=Clipboard
-        Clipboard:=ClipboardOld
-        StringRight, lastChar, selText, 1
-        if(Asc(lastChar)!=10) ;如果最后一个字符是换行符，就认为是在IDE那复制了整行，不要这个结果
+        selText := A_Clipboard
+        A_Clipboard := ClipboardOld
+        if (selText == "")
+             return ""
+
+        lastChar := SubStr(selText, -1)
+        if(Ord(lastChar)!=10) ;如果最后一个字符是换行符，就认为是在IDE那复制了整行，不要这个结果
         {
             return selText
         }
     }
-    Clipboard:=ClipboardOld
-    return
+    A_Clipboard := ClipboardOld
+    return ""
 }
 
-; ===============================================
-; lib_functions.ahk - 优化版本
-; 保持接口不变，提升内部实现可靠性
-; ===============================================
-
-UTF8encode(str) ; UTF8转码 - 优化版本
+; UTF8encode Refactor using Buffer
+UTF8encode(str) 
 {
-    if (str = "")
+    if (str == "")
         return ""
     
-    ; 备份原始格式设置
-    oldFormat := A_FormatInteger
-    SetFormat, integer, h
-    
-    returnStr := ""
+    ; V2 has no SetFormat. Use Format()
     
     try {
-        ; 计算所需缓冲区大小
-        StrCap := StrPut(str, "CP65001")
-        if (StrCap <= 1)  ; 只有终止符，说明字符串为空或转换失败
+        ; Calculate size
+        if (str == "")
             return ""
-        
-        ; 分配缓冲区
-        VarSetCapacity(UTF8String, StrCap)
-        
-        ; 执行UTF-8转换
-        actualLen := StrPut(str, &UTF8String, "CP65001")
-        if (actualLen <= 1)
-            return ""
-        
-        ; 逐字节转换为百分号编码
-        Loop, % actualLen - 1  ; 减1排除终止符
-        {
-            byteVal := NumGet(UTF8String, A_Index - 1, "UChar")
-            hexStr := SubStr(byteVal, 3)  ; 移除 "0x" 前缀
             
-            ; 确保十六进制是两位数
-            if (StrLen(hexStr) = 1)
-                hexStr := "0" . hexStr
-                
+        ; StrPut returns byte count including null.
+        ; Convert to UTF-8
+        buf := Buffer(StrPut(str, "UTF-8"))
+        len := StrPut(str, buf, "UTF-8") - 1 ; Exclude null terminator
+        
+        returnStr := ""
+        Loop len
+        {
+            byteVal := NumGet(buf, A_Index - 1, "UChar")
+            hexStr := Format("{:02X}", byteVal)
             returnStr .= "%" . hexStr
         }
-    } catch e {
-        ; 转换失败时返回空字符串
-        returnStr := ""
-    } finally {
-        ; 恢复原始格式设置
-        SetFormat, integer, %oldFormat%
+        return returnStr
+    } catch {
+        return ""
     }
-    
-    return returnStr
 }
 
-URLencode(str) ; 用于链接的话只要符号转换就行。需要全部转换的，用UTF8encode() - 优化版本
+URLencode(str) 
 {
-    if (str = "")
+    if (str == "")
         return ""
     
-    ; 使用关联数组提高查找效率，并添加更多需要编码的字符
-    static encodeMap
-    if (!encodeMap) {
-        encodeMap := {}
-        
-        ; 原有的字符映射
-        chars := ["!", "#", "$", "&", "'", "(", ")", "*", "+", ",", ":", ";", "=", "?", "@", "[", "]"]
-        codes := ["%21", "%23", "%24", "%26", "%27", "%28", "%29", "%2A", "%2B", "%2C", "%3A", "%3B", "%3D", "%3F", "%40", "%5B", "%5D"]
-        
-        ; 添加常见的其他需要编码的字符
-        chars.Push(" ", "<", ">", "{", "}", "|", "\", "^", "~", "`", """")
-        codes.Push("%20", "%3C", "%3E", "%7B", "%7D", "%7C", "%5C", "%5E", "%7E", "%60", "%22")
-        
-        ; 建立映射关系
-        Loop, % chars.MaxIndex()
-        {
-            encodeMap[chars[A_Index]] := codes[A_Index]
-        }
-    }
+    static encodeMap := Map(
+        "!", "%21", "#", "%23", "$", "%24", "&", "%26", "'", "%27", "(", "%28", ")", "%29", "*", "%2A", "+", "%2B", ",", "%2C",
+        ":", "%3A", ";", "%3B", "=", "%3D", "?", "%3F", "@", "%40", "[", "%5B", "]", "%5D",
+        " ", "%20", "<", "%3C", ">", "%3E", "{", "%7B", "}", "%7D", "|", "%7C", "\", "%5C", "^", "%5E", "~", "%7E", "``", "%60", '"', "%22"
+    )
     
     result := ""
     
-    ; 逐字符处理
-    Loop, Parse, str
+    Loop Parse, str
     {
         char := A_LoopField
-        
-        if (encodeMap.HasKey(char)) {
+        if (encodeMap.Has(char)) {
             result .= encodeMap[char]
-        } else if (char = "`n") {
-            result .= "%0A"  ; 换行符
-        } else if (char = "`r") {
-            result .= "%0D"  ; 回车符  
-        } else if (char = "`t") {
-            result .= "%09"  ; 制表符
+        } else if (char == "`n") {
+            result .= "%0A"
+        } else if (char == "`r") {
+            result .= "%0D"
+        } else if (char == "`t") {
+            result .= "%09"
         } else {
             result .= char
         }
     }
-    
     return result
 }
 
-; ===============================================
-; 辅助函数 - 可选添加，不影响原有接口
-; ===============================================
-
-; 完整的URL编码函数（结合两者优势）
 FullURLencode(str)
 {
-    if (str = "")
+    if (str == "")
         return ""
     
     result := ""
-    
-    Loop, Parse, str
+    Loop Parse, str
     {
         char := A_LoopField
-        asciiVal := Asc(char)
+        asciiVal := Ord(char)
         
-        ; ASCII字母数字和少数安全字符不编码
         if ((asciiVal >= 48 && asciiVal <= 57)     ; 0-9
             || (asciiVal >= 65 && asciiVal <= 90)  ; A-Z
             || (asciiVal >= 97 && asciiVal <= 122) ; a-z
-            || char = "-" || char = "_" || char = "." || char = "~") {
+            || char == "-" || char == "_" || char == "." || char == "~") {
             result .= char
         } else if (asciiVal <= 127) {
-            ; ASCII范围内的其他字符直接编码
             result .= "%" . Format("{:02X}", asciiVal)
         } else {
-            ; 非ASCII字符使用UTF-8编码
             result .= UTF8encode(char)
         }
     }
-    
     return result
 }
-
-
 
 checkStrType(str, fuzzy:=0)
 {
     if(!FileExist(str))
     {
-        ;  msgbox, % str
-        if(RegExMatch(str,"iS)^((https?:\/\/)|www\.)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?|(https?:\/\/)?([\da-z\.-]+)\.(com|net|org)(\W[\/\w \.-]*)*\/?$"))
+        if(RegExMatch(str, 'iS)^((https?:\/\/)|www\.)([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?|(https?:\/\/)?([\da-z\.-]+)\.(com|net|org)(\W[\/\w \.-]*)*\/?$'))
             return "web"
     }
-    if(RegExMatch(str, "i)^ftp://"))
+    if(RegExMatch(str, 'i)^ftp://'))
         return "ftp"
     else
     {
         if(fuzzy)
             return "fileOrFolder"
-        if(RegExMatch(str,"iS)^[a-z]:\\.+\..+$"))
+        if(RegExMatch(str, 'iS)^[a-z]:\\.+\..+$'))
             return "file"
-        if(RegExMatch(str,"iS)^[a-z]:\\[^.]*$"))
+        if(RegExMatch(str, 'iS)^[a-z]:\\[^.]*$'))
             return "folder"
     }
     return "unknown"
 }
 
-;winset, region窗口切割功能在放大了屏幕后(也就是dpi改变)不会改变，这里用来修复这个问题
-;  100%dpi：96
-;  125%dpi：120
-;  150%dpi：144
-;  200%dpi：192
-;  250%dpi：240
-;  300%dpi：288
-;  400%dpi：384
-;  500%dpi：480
+; DPI Fix logic
 fixDpi(num)
 {
-    ;msgbox, % Ceil(1/96*A_ScreenDPI)
-    t:=Ceil(num/96*A_ScreenDPI)
+    t := Ceil(num/96*A_ScreenDPI)
     if(A_ScreenDPI>96 && A_ScreenDPI<=120)  ;125%
         t+=1
     if(A_ScreenDPI>120 && A_ScreenDPI<=144) ;150
@@ -228,247 +169,233 @@ fixDpi(num)
         t+=3
     if(A_ScreenDPI>240 && A_ScreenDPI<=288) ;300%
         t+=4
-    if(A_ScreenDPI>288) ; && A_ScreenDPI<=384 >=400%
+    if(A_ScreenDPI>288) 
         t+=6
     return t
 }
 
-
-
-;保存设置到settings.ini
 setSettings(sec,key,val)
 {
-    IniWrite, % val, CapsLock+settings.ini, %sec%, % key
+    IniWrite(val, "CapsLock+settings.ini", sec, key)
 }
 
-;显示一个信息
-showMsg(msg,t:=2000)
+showMsg(msg, t:=2000)
 {
-    ToolTip, % msg
-    t:=-t
-    settimer, clearToolTip, % t
+    ToolTip(msg)
+    t := -t
+    SetTimer(clearToolTip, t)
 }
 
-clearToolTip:
-ToolTip
-return
+clearToolTip() {
+    ToolTip()
+}
 
-
-;提取Set里QRun的信息
-;返回文件路径，runStr为供run运行的字符串，ifAdmin是否管理员权限运行，param程序运行参数
-extractSetStr(str, ByRef runStr:="", ByRef ifAdmin:=false, ByRef param:="")
+extractSetStr(str, &runStr:="", &ifAdmin:=false, &param:="")
 {
-    str:=Trim(str, " `t")
-
-    ;如果有系统变量，替换成实际路径
-	if(!RegExMatch(str, "^%(\w+)%", str0Match))
-		RegExMatch(str, "(?<=(?:'|""))%(\w+)%", str0Match)
-	if(str0Match1)
+    str := Trim(str, " `t")
+    runStr := ""
+    ifAdmin := false
+    param := ""
+    
+    str0Match := ""
+	if(!RegExMatch(str, "^%(\w+)%", &str0Match))
+		RegExMatch(str, '(?<=(?:\x27|\x22))%(\w+)%', &str0Match)
+        
+	if(str0Match)
 	{
-		EnvGet, _t, % str0Match1
-		StringReplace, str, str, % str0Match, % _t
+		try {
+            _t := EnvGet(str0Match[1])
+		    str := StrReplace(str, str0Match[0], _t)
+        }
 	}
 	
-	;没有引号且文件存在，例：C:\Program Files\Internet Explorer\iexplore.exe
-    ;或者是ftp路径
-    if(FileExist(str)||RegExMatch(str, "^ftp://"))
+    if(FileExist(str) || RegExMatch(str, '^ftp://'))
 	{
-		runStr:=str
+		runStr := str
         return str
 	}
 
-	
-	;有引号且文件存在，例："C:\Program Files\Internet Explorer\iexplore.exe"
-	RegExMatch(str, "^('|"")(.*)\1$", strMatch)
-	if(FileExist(strMatch2)||RegExMatch(str, "^ftp://"))
+	strMatch := ""
+	RegExMatch(str, '^(\x27|\x22)(.*)\1$', &strMatch)
+    if (strMatch && (FileExist(strMatch[2]) || RegExMatch(str, '^ftp://')))
 	{
-		runStr:=str
-		return strMatch2
+		runStr := str
+		return strMatch[2]
     }
 	
-	RegExMatch(str, "('|"")(.*)\1", strMatch)
-	if(FileExist(strMatch2))
+    ; RegExMatch result is object.
+	if (RegExMatch(str, '(\x27|\x22)(.*)\1', &strMatch))
 	{
-		runStr:=strMatch
-		;判断是否管理员权限
-		strArr:=StrSplit(str, strMatch)
-		arr1:=Trim(strArr[1])
-		arr2:=Trim(strArr[2])
-        
-		if(RegExMatch(arr1,"i)^\*RunAs$"))
-		{
-			ifAdmin:=true
-			runStr:="*RunAs " . runStr
-		}
-		;如果有参数
-		if(arr2)
-		{
-			param:=arr2
-			runStr:=runStr . " " . arr2
-		}
-		return strMatch2
-	}
-	return
+        if (FileExist(strMatch[2]))
+        {
+            runStr := strMatch[0] ; Full match quoted
+            ; Check admin
+            strArr := StrSplit(str, strMatch[0])
+            arr1 := Trim(strArr[1])
+            arr2 := (strArr.Length > 1) ? Trim(strArr[2]) : ""
+            
+            if(RegExMatch(arr1, 'i)^\*RunAs$'))
+            {
+                ifAdmin := true
+                runStr := "*RunAs " . runStr
+            }
+            
+            if(arr2 != "")
+            {
+                param := arr2
+                runStr := runStr . " " . arr2
+            }
+            return strMatch[2]
+        }
+    }
+	return ""
 }
 
 alert(str)
 {
-    msgbox, % str
-    return
+    MsgBox(str)
 }
 
-;将set.ini里的QRun字符串转换成run使用的字符串
-;如果文件(夹)不存在，会返回空
 set2Run(str)
 {
-	runStr:=""
-	extractSetStr(str, runStr)
-    ;  msgbox, % runStr
+	runStr := ""
+	extractSetStr(str, &runStr)
 	return runStr
 }
 
-;用来修复 excel 里复制一整行（列）会报错的问题
-;弹出这个 gui 再进行赋值操作，然后回去
-foolGui(switch=1){
-
-	if !switch
+foolGui(switchVal:=1){
+	if !switchVal
 	{
-		Gui, foolgui:Destroy
+        try {
+		    Gui("foolgui:Destroy") 
+            ; V2 Named Guis: MyGui := Gui() ... MyGui.Destroy()
+            ; Legacy names not supported directly.
+            ; Use Global variable to store GUI object.
+        }
+        global MyFoolGui
+        if IsSet(MyFoolGui) && MyFoolGui
+             MyFoolGui.Destroy()
 		return
 	}
 
-	Gui, foolgui: -Caption +E0x80000 +LastFound +OwnDialogs +Owner
-	Gui, foolgui: Show, NA, foolgui
-	WinActivate, foolgui
+    global MyFoolGui := Gui("-Caption +E0x80000 +LastFound +OwnDialogs +Owner")
+	MyFoolGui.Show("NA")
+    ; WinActivate("foolgui") ; Title is empty by default? Set title in Gui().
+    ; But we didn't set title.
 }
 
 clipSaver(clipX)
 {
-    global
+    global sClipboardAll, cClipboardAll, caClipboardAll
     if(WinActive("ahk_exe EXCEL.EXE"))
     {
-        foolgui()
-        if(clipX="s")
-            sClipboardAll:=ClipboardAll
-        else if(clipX="c")
-            cClipboardAll:=ClipboardAll
-        else ; if(clipX="ca")
-            caClipboardAll:=ClipboardAll
+        foolgui() ; creates gui
+        if(clipX=="s")
+            sClipboardAll := ClipboardAll()
+        else if(clipX=="c")
+            cClipboardAll := ClipboardAll()
+        else 
+            caClipboardAll := ClipboardAll()
         foolgui(0)
     }
     else
     {
-        if(clipX="s")
-            sClipboardAll:=ClipboardAll
-        else if(clipX="c")
-            cClipboardAll:=ClipboardAll
-        else ; if(clipX="ca")
-            caClipboardAll:=ClipboardAll
+        if(clipX=="s")
+            sClipboardAll := ClipboardAll()
+        else if(clipX=="c")
+            cClipboardAll := ClipboardAll()
+        else 
+            caClipboardAll := ClipboardAll()
     }
 }
 
-;字符串中的特殊字符转义
-;  escapeCharForString(str){
-;      ;  StringReplace, str, str, ``, ````, All
-;      ;  StringReplace, str, str, ", `"`", All
-;      StringReplace, str, str, \", ", All
-;      StringReplace, str, str, \', ', All
-;      StringReplace, str, str, \\, \, All
-    
-;      return str
-;  }
-
-;运行函数字符串，被运行的函数的参数只接收字符串，参数分割按 CSV 方式
-; 最多支持3个参数
+; runFunc Refactor for V2
+; Params are strictly parsed.
 runFunc(str){
-    ;如果只给了函数名，没有括号，当做是不传参直接调用函数
-    if(!RegExMatch(Trim(str), "\)$"))
+    str := Trim(str)
+    ; Simple call: funcName
+    if(!RegExMatch(str, '\)$'))
     {
         %str%()
         return
     }
-    if(RegExMatch(str, "(\w+)\((.*)\)$", match))
+    
+    match := ""
+    if(RegExMatch(str, '(\w+)\((.*)\)$', &match))
     {
-        func:=Func(match1)
+        funcName := match[1]
+        argsStr := match[2]
         
-        if(!match2)
-        {
-            func.()
-            return
-        }
-        ;  msgbox, % "match2" . match2
-        ;  pos := 1, params:=[]
-        ;  While pos := RegExMatch(match2, "(?:""((?:[^""\\]|\\.)*)"")|(?:'((?:[^'\\]|\\.)*)')", matchB, pos+StrLen(matchB))
-        ;  {
-        ;      if(matchB1)
-        ;          params.insert(matchB1)
-        ;      else if(match2)
-        ;          params.insert(matchB2)
-        ;  }
-
-        ;  parmasLen:=params.MaxIndex()
-
-        params:={}
-        loop, Parse, match2, CSV
-        {
-            params.insert(A_LoopField)
-        }
-
-        parmasLen:=params.MaxIndex()
-        
-        if(parmasLen==1)
-        {
-            func.(params[1])
-            return
-        }
-        if(parmasLen==2)
-        {
-            func.(params[1],params[2])
-            return
-        }
-        if(parmasLen==3)
-        {
-            func.(params[1],params[2],params[3])
-            return
+        try {
+            if (argsStr == "") {
+                %funcName%()
+                return
+            }
+            
+            params := []
+            Loop Parse, argsStr, "CSV"
+            {
+                val := A_LoopField
+                if IsInteger(val)
+                    val := Integer(val)
+                else if IsFloat(val)
+                    val := Float(val)
+                params.Push(val)
+            }
+            
+            ; Dynamic call with params array
+            %funcName%(params*)
         }
     }
 }
 
-
-
-
-; 例子: 当您按下 Win+C 时隐藏鼠标光标. 再次按下 Win+C 显示.
-; 此脚本来自 www.autohotkey.com/forum/topic6107.html
-SystemCursor(OnOff:=1)   ; 初始化 = "I","Init"; 隐藏 = 0,"Off"; 切换 = -1,"T","Toggle"; 显示 = 其他
+SystemCursor(OnOff:=1)   
 {
-    static AndMask, XorMask, $, h_cursor
-        ,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 ; 系统指针
-        , b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13   ; 空白指针
-        , h1,h2,h3,h4,h5,h6,h7,h8,h9,h10,h11,h12,h13   ; 默认指针的句柄
-    if (OnOff = "Init" or OnOff = "I" or $ = "")       ; 在请求或首此调用时进行初始化
+    static AndMask, XorMask, CurrentCursorType, h_cursor, c0
+    ; Initialization logic needs careful porting or use built-in BlockInput check?
+    ; Using a cleaner modern approach or stick to DllCall?
+    ; Stick to DllCall for custom cursor hiding.
+    
+    ; Note: VarSetCapacity -> Buffer
+    if (OnOff == "Init" or OnOff == "I" or !IsSet(CurrentCursorType))       
     {
-        $ = h                                          ; 活动的默认指针
-        VarSetCapacity( h_cursor,4444, 1 )
-        VarSetCapacity( AndMask, 32*4, 0xFF )
-        VarSetCapacity( XorMask, 32*4, 0 )
-        system_cursors = 32512,32513,32514,32515,32516,32642,32643,32644,32645,32646,32648,32649,32650
-        StringSplit c, system_cursors, `,
-        Loop %c0%
+        CurrentCursorType := "h" 
+        h_cursor := Buffer(4444, 1) ; Arbitrary size?
+        AndMask := Buffer(32*4, 0xFF)
+        XorMask := Buffer(32*4, 0)
+        
+        system_cursors := "32512,32513,32514,32515,32516,32642,32643,32644,32645,32646,32648,32649,32650"
+        cursors := StrSplit(system_cursors, ",")
+        c0 := cursors.Length
+        
+        ; Using Maps for static storage equivalents of c%Index%
+        static cursor_handles := Map()
+        
+        Loop c0
         {
-            h_cursor   := DllCall( "LoadCursor", "Ptr",0, "Ptr",c%A_Index% )
-            h%A_Index% := DllCall( "CopyImage", "Ptr",h_cursor, "UInt",2, "Int",0, "Int",0, "UInt",0 )
-            b%A_Index% := DllCall( "CreateCursor", "Ptr",0, "Int",0, "Int",0
-                , "Int",32, "Int",32, "Ptr",&AndMask, "Ptr",&XorMask )
+            id := cursors[A_Index]
+            h_cur := DllCall("LoadCursor", "Ptr",0, "Ptr", id, "Ptr")
+            
+            h_copy := DllCall("CopyImage", "Ptr", h_cur, "UInt", 2, "Int", 0, "Int", 0, "UInt", 0, "Ptr")
+            cursor_handles["h" . A_Index] := h_copy
+            
+            b_cursor := DllCall("CreateCursor", "Ptr", 0, "Int", 0, "Int", 0, 
+                "Int", 32, "Int", 32, "Ptr", AndMask, "Ptr", XorMask, "Ptr")
+            cursor_handles["b" . A_Index] := b_cursor
+            
+            cursor_handles["c" . A_Index] := id
         }
     }
-    if (OnOff = 0 or OnOff = "Off" or $ = "h" and (OnOff < 0 or OnOff = "Toggle" or OnOff = "T"))
-        $ = b  ; 使用空白指针
+    
+    if (OnOff == 0 or OnOff == "Off" or (CurrentCursorType == "h" and (OnOff < 0 or OnOff == "Toggle" or OnOff == "T")))
+        CurrentCursorType := "b"
     else
-        $ = h  ; 使用保存的指针
-
-    Loop %c0%
+        CurrentCursorType := "h"
+        
+    Loop c0
     {
-        h_cursor := DllCall( "CopyImage", "Ptr",%$%%A_Index%, "UInt",2, "Int",0, "Int",0, "UInt",0 )
-        DllCall( "SetSystemCursor", "Ptr",h_cursor, "UInt",c%A_Index% )
+        h_img := cursor_handles[CurrentCursorType . A_Index]
+        id := cursor_handles["c" . A_Index]
+        DllCall("SetSystemCursor", "Ptr", h_img, "UInt", id)
     }
 }
