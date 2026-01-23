@@ -399,3 +399,35 @@ SystemCursor(OnOff:=1)
         DllCall("SetSystemCursor", "Ptr", h_img, "UInt", id)
     }
 }
+
+applyModernStyle(hwnd) {
+    ; OS Version check for Windows 11 (Build 22000+)
+    try {
+        isWin11 := VerCompare(A_OSVersion, "10.0.22000") >= 0
+        
+        if isWin11 {
+            ; 1. Rounded Corners (DWMWA_WINDOW_CORNER_PREFERENCE = 33)
+            ; DWA_WCP_ROUND = 2
+            DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 33, "int*", 2, "uint", 4)
+            
+            ; 2. Immersive Dark Mode (DWMWA_USE_IMMERSIVE_DARK_MODE = 20)
+            ; ESSENTIAL for dark shadow and correct system menus
+            DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 20, "int*", 1, "uint", 4)
+
+            ; 3. Mica Backdrop (DWMWA_SYSTEMBACKDROP_TYPE = 38)
+            ; DWMSBT_MAINWINDOW (Mica) = 2
+            DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 38, "int*", 2, "uint", 4)
+            
+            ; 4. Caption Color (Transparent) to allow Mica to extend to top if used
+            DllCall("dwmapi\DwmSetWindowAttribute", "ptr", hwnd, "uint", 35, "int*", 0xFFFFFFFE, "uint", 4)
+        }
+    }
+    
+    ; 3. Draw Shadow (for -Caption windows)
+    margins := Buffer(16, 0)
+    NumPut("int", 1, margins, 0)
+    NumPut("int", 1, margins, 4)
+    NumPut("int", 1, margins, 8)
+    NumPut("int", 1, margins, 12)
+    DllCall("dwmapi\DwmExtendFrameIntoClientArea", "ptr", hwnd, "ptr", margins)
+}

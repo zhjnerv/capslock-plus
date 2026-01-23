@@ -52,7 +52,10 @@ keyset["press_caps"] := "keyFunc_toggleCapsLock"
 #Include "lib\lib_mouseSpeed.ahk"
 #Include "lib\lib_winJump.ahk"
 #Include "lib\lib_winTransparent.ahk"
-#Include "lib\lib_loadAnimation.ahk"
+
+
+; User Extensions (Must be V2 compatible)
+#Include "*i userAHK\main.ahk"
 
 
 SetTimer(initAll, -400)

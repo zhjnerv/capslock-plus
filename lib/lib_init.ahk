@@ -19,6 +19,9 @@ initAll() {
         try showLoading() ; In lib_loadAnimation.ahk
     }
     
+    ; Load language settings first to initialize global variables like lang_settingsDemoFileContent_1
+    language_Simplified_Chinese() 
+    
     settingsInit() ;初始化设置
     initCapsKeys() ; 初始化热键绑定
 

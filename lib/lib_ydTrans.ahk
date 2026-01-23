@@ -52,29 +52,38 @@ ydTranslate(ss)
     }
     else
     {
-        transGui := Gui("+AlwaysOnTop -Border +Caption -Disabled -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow", IsSet(lang_yd_name) ? lang_yd_name : "Translation")
+        transGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", IsSet(lang_yd_name) ? lang_yd_name : "Translation")
         transGuiHwnd := transGui.Hwnd
+        
+        applyModernStyle(transGuiHwnd)
+        transGui.BackColor := "010203"
 
-        transGui.SetFont("s10 w400 c000000", "Microsoft YaHei UI")
+        fontName := "Segoe UI Variable Text"
+        transGui.SetFont("s11 cEEEEEE", fontName)
         
         transGui.OnEvent("Escape", (*) => transGui.Hide())
         transGui.OnEvent("Close", (*) => transGui.Hide())
 
-        ; Button needs an event
-        btn := transGui.Add("Button", "x-40 y-40 Default", "OK")
+        ; Hidden default button for Enter to submit
+        btn := transGui.Add("Button", "x-100 y-100 Default", "OK")
         btn.OnEvent("Click", TransGuiSubmit)
 
-        transEdit := transGui.Add("Edit", "x-2 y0 w504 h405 vTransEdit -WantReturn c000000 BackgroundWhite", MsgBoxStr)
+        margin := fixDpi(10)
+        innerW := fixDpi(500)
+        innerH := fixDpi(400)
+        
+        ; Background for Edit
+        transGui.Add("Text", "x" . margin . " y" . margin . " w" . innerW . " h" . innerH . " Background2D2D2D")
+        
+        ; Edit Control
+        transEdit := transGui.Add("Edit", "x" . (margin+5) . " y" . (margin+5) . " w" . (innerW-10) . " h" . (innerH-10) . " vTransEdit -WantReturn -E0x200 cEEEEEE Background2D2D2D", MsgBoxStr)
         transEditHwnd := transEdit.Hwnd
 
-        transGui.BackColor := "White"
-        
-        transGui.Show("Center w500 h402")
-        try WinSetTransparent("Off", transGui) ; Force opaque
+        transGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin))
+        WinSetTransColor("010203", transGuiHwnd)
         try ControlFocus(transEditHwnd)
-
-        ; SetTimer, setTransActive, 50 ; V2 approach below
     }
+
 
     if(NativeString)
     {

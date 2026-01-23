@@ -1,29 +1,37 @@
-﻿#Include ../lib/lib_json.ahk ;引入json解析文件
+﻿; #Include "../lib/lib_json.ahk" ; Already included by CapsLock+.ahk
 
 ;指定文件编码
-#Persistent
-FileEncoding, UTF-8
+; #Persistent ; Not needed in V2 for included files usually, main script persists
+FileEncoding("UTF-8")
 
-OpenAIApiInit:
-global OpenAI_key, base_url, model, temperature, top_p, openaiGuiHwnd, openAI_transEditHwnd, openAI_transEdit
-global system_prompt, user_content, promptSelectionDone, selectedPromptFileName, selectedPromptIndex
+; Globals for OpenAI
+global OpenAI_key := "", base_url := "", model := "", temperature := "", top_p := ""
+global openaiGuiHwnd := "", openAI_transEditHwnd := "", openAI_transEdit := ""
+global system_prompt := "", user_content := "", promptSelectionDone := 0
+global selectedPromptFileName := "", selectedPromptIndex := 1
+global OpenAIgs := "" ; GUI Object for Settings/Prompt
 
-setopenAIGuiActive:
-WinActivate, ahk_id %openaiGuiHwnd%
-return
+setOpenaiActive(*) {
+    global openaiGuiHwnd
+    if (openaiGuiHwnd && WinExist("ahk_id " . openaiGuiHwnd))
+        WinActivate("ahk_id " . openaiGuiHwnd)
+}
 
 OpenAI_Cap(oo)
 {
+    global OpenAI_key, base_url, model, temperature, top_p, user_content
+    
     ; 移除全局声明，因为已经在开头声明过了
-    OpenAI_key:=CLSets.AI.OpenAI_key
-    base_url:=CLSets.AI.base_url
-    model:=CLSets.AI.model
-    temperature:=CLSets.AI.temperature
-    top_p:=CLSets.AI.top_p
+    if (CLSets.Has("AI")) {
+        OpenAI_key  := CLSets["AI"].Has("OpenAI_key") ? CLSets["AI"]["OpenAI_key"] : ""
+        base_url    := CLSets["AI"].Has("base_url") ? CLSets["AI"]["base_url"] : ""
+        model       := CLSets["AI"].Has("model") ? CLSets["AI"]["model"] : "gpt-3.5-turbo"
+        temperature := CLSets["AI"].Has("temperature") ? CLSets["AI"]["temperature"] : 0.7
+        top_p       := CLSets["AI"].Has("top_p") ? CLSets["AI"]["top_p"] : 1
+    }
     
     ; 预处理输入文本
     oo := RegExReplace(oo, "\s+", " ") ; 将所有空白符替换为空格
-    ; MsgBox, 输入内容：%oo%
     user_content := Trim(oo) ; 去除首尾空格
     
     ; 启动Prompt选择流程
@@ -33,47 +41,61 @@ OpenAI_Cap(oo)
 ;单独的显示prompt选择框的函数
 ShowPromptSelection()
 {
+    global OpenAIgs, promptSelectionDone, selectedPromptFileName, selectedPromptIndex
+    
     ; 显示选择对话框
-    Gui, PromptSelect:New, +AlwaysOnTop
-    Gui, PromptSelect:Add, Text,, 请选择要使用的 Prompt 文件(或按对应数字键) ;两个逗号是跳过了一个宽度参数
-    Gui, PromptSelect:Add, Radio, vSelectedPrompt Checked gRadioPrompt, 1. 默认(prompt.txt)
-    Gui, PromptSelect:Add, Radio, gRadioPrompt, 2. 改写(rewrite_prompt.txt)
-    Gui, PromptSelect:Add, Radio, gRadioPrompt, 3. 翻译(translate_prompt.txt)
-    Gui, PromptSelect:Add, Radio, gRadioPrompt, 4. 总结(summarize_prompt.txt)
-    Gui, PromptSelect:Add, Radio, gRadioPrompt, 5. 润色(polish_prompt.txt)
-    Gui, PromptSelect:Add, Button, Default gConfirmPromptFile w100, 确定
-    Gui, PromptSelect:Add, Button, gCancelPromptFile x+10 w100, 取消
+    OpenAIgs := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "选择 Prompt 文件")
+    gsHwnd := OpenAIgs.Hwnd
+    applyModernStyle(gsHwnd)
+    OpenAIgs.BackColor := "010203"
     
-    ; 添加热键
-    Gui, PromptSelect:+LastFound
-    hwnd := WinExist()
-    Hotkey, IfWinActive, ahk_id %hwnd%
-    Hotkey, 1, SelectPrompt1
-    Hotkey, 2, SelectPrompt2
-    Hotkey, 3, SelectPrompt3
-    Hotkey, 4, SelectPrompt4
-    Hotkey, 5, SelectPrompt5
-    Hotkey, Escape, CancelPromptFile
-    Hotkey, Enter, ConfirmPromptFile
+    fontName := "Segoe UI Variable Text"
+    OpenAIgs.SetFont("s11 cEEEEEE", fontName)
+
+    margin := fixDpi(20)
+    OpenAIgs.Add("Text", "x" . margin . " y" . margin, "请选择要使用的 Prompt 文件 (1-5):")
     
-    Gui, PromptSelect:Show,, 选择 Prompt 文件
+    ; Radio buttons
+    OpenAIgs.SetFont("s10 cEEEEEE")
+    OpenAIgs.Add("Radio", "vSelectedPrompt Checked x" . margin . " y+10", "1. 默认 (prompt.txt)").OnEvent("Click", RadioPrompt)
+    OpenAIgs.Add("Radio", "x" . margin . " y+5", "2. 改写 (rewrite_prompt.txt)").OnEvent("Click", RadioPrompt)
+    OpenAIgs.Add("Radio", "x" . margin . " y+5", "3. 翻译 (translate_prompt.txt)").OnEvent("Click", RadioPrompt)
+    OpenAIgs.Add("Radio", "x" . margin . " y+5", "4. 总结 (summarize_prompt.txt)").OnEvent("Click", RadioPrompt)
+    OpenAIgs.Add("Radio", "x" . margin . " y+5", "5. 润色 (polish_prompt.txt)").OnEvent("Click", RadioPrompt)
     
-    ; 强制重置CapsLock状态，解决KeyWait阻塞问题
-    global CapsLock, CapsLock2, ctrlZ
-    CapsLock := ""
-    CapsLock2 := ""
-    ctrlZ := ""
+    OpenAIgs.SetFont("s10 c000000") ; Buttons usually look better with dark text or themed
+    OpenAIgs.Add("Button", "Default x" . margin . " y+15 w80 h30", "确定").OnEvent("Click", ConfirmPromptFile)
+    OpenAIgs.Add("Button", "x+10 w80 h30", "取消").OnEvent("Click", CancelPromptFile)
+    
+    OpenAIgs.Show("AutoSize Center")
+    WinSetTransColor("010203", gsHwnd)
+
+
+    
+    ; 添加热键 context
+    hwnd := OpenAIgs.Hwnd
+    HotIfWinActive("ahk_id " . hwnd)
+    Hotkey("1", SelectPrompt1)
+    Hotkey("2", SelectPrompt2)
+    Hotkey("3", SelectPrompt3)
+    Hotkey("4", SelectPrompt4)
+    Hotkey("5", SelectPrompt5)
+    Hotkey("Escape", CancelPromptFileAndDisableHotkeys)
+    Hotkey("Enter", ConfirmPromptFileAndDisableHotkeys)
+    HotIfWinActive
+    
+    ; 强制重置CapsLock状态
+    ; CapsLock := "" ; Not strictly needed in V2 object scope usually
     
     ; 不使用 WinWaitClose，而是设置一个全局变量来标记选择状态
-    global promptSelectionDone := 0
-    global selectedPromptFileName := "prompt.txt"  ; 默认值
-    global selectedPromptIndex := 1  ; 默认选择第一项
+    promptSelectionDone := 0
+    selectedPromptFileName := "prompt.txt"  ; 默认值
+    selectedPromptIndex := 1  ; 默认选择第一项
     
     ; 等待选择完成
+    waitCount := 0
     while (!promptSelectionDone) {
-        Sleep, 100
-        ; 如果等待超过10秒，使用默认值
-        static waitCount := 0
+        Sleep(100)
         waitCount += 1
         if (waitCount > 100) {  ; 10秒 = 100 * 100ms
             promptSelectionDone := 1
@@ -81,205 +103,270 @@ ShowPromptSelection()
         }
     }
     
-    ; 禁用热键
-    Hotkey, IfWinActive, ahk_id %hwnd%
-    Hotkey, 1, Off
-    Hotkey, 2, Off
-    Hotkey, 3, Off
-    Hotkey, 4, Off
-    Hotkey, 5, Off
-    Hotkey, Escape, Off
-    Hotkey, Enter, Off
-    Hotkey, IfWinActive
+    DisablePromptHotkeys(hwnd)
     
-    Gui, PromptSelect:Destroy
+    if (OpenAIgs)
+        OpenAIgs.Destroy()
     
     ; 重置等待计数器
     waitCount := 0
-    
-    
 }
+
+DisablePromptHotkeys(hwnd) {
+    try {
+        HotIfWinActive("ahk_id " . hwnd)
+        Hotkey("1", "Off")
+        Hotkey("2", "Off")
+        Hotkey("3", "Off")
+        Hotkey("4", "Off")
+        Hotkey("5", "Off")
+        Hotkey("Escape", "Off")
+        Hotkey("Enter", "Off")
+        HotIfWinActive
+    }
+}
+
+
 ;专门用来处理API请求的函数
 CallOpenAIAPI()
 {
+    global system_prompt, user_content, selectedPromptFileName
+    global openaiGuiHwnd, openAI_transEditHwnd, OpenAIResGui
+    
     ; 读取选定的 prompt 文件并继续执行
-    FileRead, system_prompt, %A_WorkingDir%\prompt\%selectedPromptFileName%
+    promptPath := A_WorkingDir . "\userAHK\prompt\" . selectedPromptFileName
+    ; userAHK path adjustment since prompted files likely moved or relative
+    
+    if !FileExist(promptPath)
+        promptPath := A_WorkingDir . "\prompt\" . selectedPromptFileName ; Try root prompt
+
+    try {
+        system_prompt := FileRead(promptPath)
+    } catch {
+        system_prompt := ""
+    }
     
     ; 如果读取失败，使用默认 prompt
-    if (system_prompt = "") {
-        FileRead, system_prompt, %A_WorkingDir%\prompt\prompt.txt
+    if (system_prompt == "") {
+        try {
+            system_prompt := FileRead(A_WorkingDir . "\userAHK\prompt\prompt.txt")
+        }
     }
 
     ; 显示处理中的对话框
     OpenAIMsgBoxStr := user_content ? "正在修改……" : ""
     
-    DetectHiddenWindows, On ;可以检测到隐藏窗口
-    WinGet, ifGuiExistButHide, Count, ahk_id %openaiGuiHwnd%
-    if(ifGuiExistButHide)
+    DetectHiddenWindows(true)
+    
+    if (openaiGuiHwnd && WinExist("ahk_id " . openaiGuiHwnd))
     {
-        ControlSetText, , %OpenAIMsgBoxStr%, ahk_id %openAI_transEditHwnd%
-        ControlFocus, , ahk_id %openAI_transEditHwnd%
-        WinShow, ahk_id %openaiGuiHwnd%
+        try ControlSetText(OpenAIMsgBoxStr, openAI_transEditHwnd)
+        try ControlFocus(openAI_transEditHwnd)
+        WinShow("ahk_id " . openaiGuiHwnd)
+        OpenAIResGui := GuiFromHwnd(openaiGuiHwnd)
     }
-    else ;IfWinNotExist,  ahk_id %openaiGuiHwnd%
+    else
     {
-        Gui, new, +HwndopenaiGuiHwnd , openai修饰
-        Gui, +AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme -ToolWindow
-        Gui, Font, s10 w400, Microsoft YaHei UI ;设置字体
-        gui, Add, Button, x-40 y-40 Default gButtonOK_OpenAI, OK  
+        OpenAIResGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "openai修饰")
+        openaiGuiHwnd := OpenAIResGui.Hwnd
+        
+        applyModernStyle(openaiGuiHwnd)
+        OpenAIResGui.BackColor := "010203"
 
-        Gui, Add, Edit, x-2 y0 w504 h405 vopenAI_transEdit HwndopenAI_transEditHwnd -WantReturn , %OpenAIMsgBoxStr% ;注意此处的vopenAI_transEdit
-        Gui, Color, ffffff, fefefe
-        Gui, +LastFound
-        WinSet, TransColor, ffffff 210
-        Gui, Show, Center w500 h402, openai修饰
-        ControlFocus, , ahk_id %openAI_transEditHwnd%
-        SetTimer, setOpenaiActive, 50
+        fontName := "Segoe UI Variable Text"
+        OpenAIResGui.SetFont("s11 cEEEEEE", fontName)
+        
+        OpenAIResGui.OnEvent("Escape", (*) => OpenAIResGui.Hide())
+        OpenAIResGui.OnEvent("Close", (*) => OpenAIResGui.Hide())
+        
+        ; Hidden default button
+        OpenAIResGui.Add("Button", "x-100 y-100 Default", "OK").OnEvent("Click", ButtonOK_OpenAI) 
+
+        margin := fixDpi(10)
+        innerW := fixDpi(500)
+        innerH := fixDpi(400)
+
+        ; Background for Edit
+        OpenAIResGui.Add("Text", "x" . margin . " y" . margin . " w" . innerW . " h" . innerH . " Background2D2D2D")
+
+        openAI_transEditObj := OpenAIResGui.Add("Edit", "x" . (margin+5) . " y" . (margin+5) . " w" . (innerW-10) . " h" . (innerH-10) . " vopenAI_transEdit -WantReturn -E0x200 cEEEEEE Background2D2D2D", OpenAIMsgBoxStr)
+        openAI_transEditHwnd := openAI_transEditObj.Hwnd
+        
+        OpenAIResGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin))
+        WinSetTransColor("010203", openaiGuiHwnd)
+        
+        try ControlFocus(openAI_transEditHwnd)
+
+        SetTimer(setOpenaiActive, 50)
     }
+
 
     ; 如果有内容，则调用API处理
     if(user_content) 
     {
         ; 创建一个空对象
-        data := {}
+        data := Map()
 
         ; 设置请求数据
         data["model"] := model
-        data["messages"] := [{"role": "system","content": system_prompt},{"role": "user","content": "目标内容如下：<" . user_content . ">"}]
+        data["messages"] := [Map("role", "system", "content", system_prompt), Map("role", "user", "content", "目标内容如下：<" . user_content . ">")]
 
         ; 将data数据转换为JSON格式
-        json_data := JSON.Dump(data)
+        json_data := JSON.stringify(data)
         
-        ; 显示data内容以供确认
-        ; MsgBox, % "请求数据内容：`n" . json_data
         ; 构建请求头
-        http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
         post_url := base_url . "v1/chat/completions"
-        http.Open("POST", post_url, True)
+        http.Open("POST", post_url, true) ; Async=true
         http.SetRequestHeader("Content-Type", "application/json")
         http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
         http.Send(json_data)
-        http.WaitForResponse(-1)
-
-        if (http.status != 200) {
-            ; 获取错误信息
-            try {
-                errorMessage := JSON.Load(http.responseText).error.message
-            } catch {
-                errorMessage := "OpenAI API Error: Status " . http.status . " - " . http.statusText
+        
+        try {
+            http.WaitForResponse(-1)
+        
+            if (http.status != 200) {
+                ; 获取错误信息
+                try {
+                    errorMessage := JSON.parse(http.responseText)["error"]["message"]
+                } catch {
+                    errorMessage := "OpenAI API Error: Status " . http.status . " - " . http.statusText
+                }
+                ; 显示错误信息到 GUI
+                OpenAIMsgBoxStr := errorMessage
             }
-            ; 显示错误信息到 GUI
-            OpenAIMsgBoxStr := errorMessage
-        }
-        else {
-            ; 获取响应
-            arr := http.responseBody
-            pData := NumGet(ComObjValue(arr) + 8 + A_PtrSize)
-            length := arr.MaxIndex() + 1
-            response := StrGet(pData, length, "utf-8")
-
-            ; 使用 JSON.Load 解析响应
-            responseObject := JSON.Load(response)
-
-            ; 获取助手消息内容
-            result := responseObject.choices[1].message.content
-            result := StrReplace(result, "`n", "`r`n")
-
-            ; 显示结果
-            OpenAIMsgBoxStr := result
-            clipboard := result ;将result数据复制到剪贴板
+            else {
+                ; 获取响应
+                arr := http.responseBody
+                pData := NumGet(ComObjValue(arr) + 8 + A_PtrSize, "Ptr")
+                length := arr.MaxIndex() + 1
+                response := StrGet(pData, length, "utf-8")
+    
+                ; 使用 JSON.Load 解析响应
+                responseObject := JSON.parse(response)
+    
+                ; 获取助手消息内容
+                ; V2 JSON object access depends on library, usually Map/Array
+                try {
+                    result := responseObject["choices"][1]["message"]["content"]
+                    result := StrReplace(result, "`n", "`r`n")
+                    
+                    OpenAIMsgBoxStr := result
+                    A_Clipboard := result ;将result数据复制到剪贴板
+                } catch {
+                    OpenAIMsgBoxStr := "Error parsing response."
+                }
+            }
+        } catch as e {
+             OpenAIMsgBoxStr := "Request Failed: " . e.Message
         }
 
         ; 更新GUI显示
-        ControlSetText, , %OpenAIMsgBoxStr%, ahk_id %openAI_transEditHwnd%
-        ControlFocus, , ahk_id %openAI_transEditHwnd%
-        SetTimer, setOpenaiActive, 50
+        try ControlSetText(OpenAIMsgBoxStr, openAI_transEditHwnd)
+        try ControlFocus(openAI_transEditHwnd)
+        SetTimer(setOpenaiActive, 50)
     }
 }
 
-;确保激活
-setOpenaiActive:
-IfWinExist, ahk_id %openaiGuiHwnd%
-{
-    SetTimer, ,Off
-    WinActivate, ahk_id %openaiGuiHwnd%
-}
-return
 
 ; 添加确认 prompt 文件选择的标签
-ConfirmPromptFile:
-Gui, PromptSelect:Submit
-promptSelectionDone := 1
-
-; 根据选择的索引设置文件名
-if (selectedPromptIndex = 1) {
-    selectedPromptFileName := "prompt.txt"
-} else if (selectedPromptIndex = 2) {
-    selectedPromptFileName := "rewrite_prompt.txt"
-} else if (selectedPromptIndex = 3) {
-    selectedPromptFileName := "translate_prompt.txt"
-} else if (selectedPromptIndex = 4) {
-    selectedPromptFileName := "summarize_prompt.txt"
-} else if (selectedPromptIndex = 5) {
-    selectedPromptFileName := "polish_prompt.txt"
+ConfirmPromptFile(*) {
+    global OpenAIgs, promptSelectionDone, selectedPromptIndex, selectedPromptFileName
+    if (OpenAIgs)
+        saved := OpenAIgs.Submit() ; Hide?
+        
+    promptSelectionDone := 1
+    
+    ; 根据选择的索引设置文件名
+    if (selectedPromptIndex = 1) {
+        selectedPromptFileName := "prompt.txt"
+    } else if (selectedPromptIndex = 2) {
+        selectedPromptFileName := "rewrite_prompt.txt"
+    } else if (selectedPromptIndex = 3) {
+        selectedPromptFileName := "translate_prompt.txt"
+    } else if (selectedPromptIndex = 4) {
+        selectedPromptFileName := "summarize_prompt.txt"
+    } else if (selectedPromptIndex = 5) {
+        selectedPromptFileName := "polish_prompt.txt"
+    }
+    
+    ;在选择好文件之后，立即调用API请求相关的函数
+    ; Use SetTimer to decouple stack
+    SetTimer(CallOpenAIAPI, -10)
 }
-;在选择好文件之后，立即调用API请求相关的函数
-CallOpenAIAPI()
-return
+
+ConfirmPromptFileAndDisableHotkeys(*) {
+    ConfirmPromptFile()
+}
 
 ; 添加取消选择的标签
-CancelPromptFile:
-Gui, PromptSelect:Destroy
-promptSelectionDone := 1
-selectedPromptFileName := "prompt.txt"  ; 使用默认值
-return
+CancelPromptFile(*) {
+    global OpenAIgs, promptSelectionDone, selectedPromptFileName
+    if (OpenAIgs)
+        OpenAIgs.Destroy()
+        
+    promptSelectionDone := 1
+    selectedPromptFileName := "prompt.txt"  ; 使用默认值
+}
+
+CancelPromptFileAndDisableHotkeys(*) {
+    CancelPromptFile()
+}
 
 ; 处理单选按钮变化
-RadioPrompt:
-Gui, PromptSelect:Submit, NoHide
-; 根据 SelectedPrompt 的值设置 selectedPromptIndex
-selectedPromptIndex := SelectedPrompt
-return
+RadioPrompt(*) {
+    ; Not really needed to auto-submit in V2 events usually pass the control
+    ; But we can store index if needed manually or just rely on submit
+    ; Let's just update index when clicked based on name?
+    ; Or easier: submit in Confirm.
+    ; But original code updated on click.
+    global OpenAIgs, selectedPromptIndex
+    if OpenAIgs {
+        saved := OpenAIgs.Submit(0)
+        selectedPromptIndex := saved.SelectedPrompt
+    }
+}
 
 ; 数字键快捷选择
-SelectPrompt1:
-GuiControl, PromptSelect:, SelectedPrompt, 1
-selectedPromptIndex := 1
-goto, ConfirmPromptFile
-return
+SelectPrompt1(*) {
+    UpdatePromptSelection(1)
+}
+SelectPrompt2(*) {
+    UpdatePromptSelection(2)
+}
+SelectPrompt3(*) {
+    UpdatePromptSelection(3)
+}
+SelectPrompt4(*) {
+    UpdatePromptSelection(4)
+}
+SelectPrompt5(*) {
+    UpdatePromptSelection(5)
+}
 
-SelectPrompt2:
-GuiControl, PromptSelect:, SelectedPrompt, 2
-selectedPromptIndex := 2
-goto, ConfirmPromptFile
-return
-
-SelectPrompt3:
-GuiControl, PromptSelect:, SelectedPrompt, 3
-selectedPromptIndex := 3
-goto, ConfirmPromptFile
-return
-
-SelectPrompt4:
-GuiControl, PromptSelect:, SelectedPrompt, 4
-selectedPromptIndex := 4
-goto, ConfirmPromptFile
-return
-
-
-SelectPrompt5:
-GuiControl, PromptSelect:, SelectedPrompt, 5
-selectedPromptIndex := 5
-goto, ConfirmPromptFile
-return
+UpdatePromptSelection(idx) {
+    global OpenAIgs, selectedPromptIndex
+    selectedPromptIndex := idx
+    if (OpenAIgs) {
+        ; Check the radio button
+        try ControlSetChecked(1, "Button" . idx, OpenAIgs.Hwnd) ; Buttons are usually sequentual
+    }
+    ConfirmPromptFile()
+}
 
 ; 添加按钮处理函数
-ButtonOK_OpenAI:
-Gui, Submit, NoHide
-; 获取 Edit 控件中的文本，并去除多余空格
-openAI_transEdit := RegExReplace(openAI_transEdit, "\s+", " ") ;20250302增加了一个加号不知道是为什么。
-user_content := Trim(openAI_transEdit)
+ButtonOK_OpenAI(*) {
+    global OpenAIResGui, openAI_transEdit, user_content
+    if (OpenAIResGui)
+        saved := OpenAIResGui.Submit(0)
+    
+    ; openAI_transEdit variable bound to control in V1, V2 needs object access or saved.openAI_transEdit
+    ; But we used variable name vopenAI_transEdit
+    
+    userInput := saved.openAI_transEdit
+    userInput := RegExReplace(userInput, "\s+", " ")
+    user_content := Trim(userInput)
 
-; 重新调用 OpenAI_Cap 函数处理新文本
-CallOpenAIAPI()
-return
+    ; 重新调用 OpenAI_Cap 函数处理新文本
+    CallOpenAIAPI()
+}
