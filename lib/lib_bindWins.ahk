@@ -48,22 +48,24 @@ bindWinsInit() {
     if (sectionValue == "")
       continue
 
+    ; Try to convert to integer - if it fails, skip
+    try {
+      n := Integer(sectionValue)
+    } catch {
+      continue
+    }
+
+    if (!winsInfos.Has(n))
+      initWinsInfos(n)
+
     try {
       infosKeys := IniRead(winsInfosRecorderPath, sectionValue)
     } catch {
       continue
     }
 
-    ; sectionValue is the key index (e.g. "1", "2")
-    ; But code below uses sectionValue as index.
-    if (!IsInteger(sectionValue))
-      continue
-
-    n := Integer(sectionValue)
-    if (!winsInfos.Has(n))
-      initWinsInfos(n)
-
     keyArr := StrSplit(infosKeys, "`n")
+    tempData := Map("class", Map(), "exe", Map(), "id", Map())
 
     for keyValue in keyArr {
       val := StrSplit(keyValue, "=")
@@ -74,47 +76,33 @@ bindWinsInit() {
       v := val[2]
 
       if (k == "bindType") {
-        winsInfos[n]["bindType"] := Integer(v)
+        try {
+          winsInfos[n]["bindType"] := Integer(v)
+        }
       } else {
-        ; format: class_0, exe_1, id_0
         parts := StrSplit(k, "_")
         if (parts.Length == 2) {
-          type := parts[1] ; class, exe, id
-          idx := Integer(parts[2]) + 1 ; V1 0-based -> V2 1-based logic
-
-          if (type == "class" || type == "exe" || type == "id") {
-            ; Ensure array is large enough?
-            ; V2 arrays handle inserts, but better to just push or set direct if index known.
-            ; Since ini might not be ordered, direct assignment is safer if we pre-fill?
-            ; Let's just use direct assignment but be careful of gaps.
-            ; V1 code used pseudo-arrays.
-            ; To match V1 logic: "index" in ini is 0-based.
-
-            ; Adjust array size if needed (simplistic approach: direct set allowed in Map, but here it's Array)
-            ; Arrays in V2 are strictly indexed 1..Length.
-            ; If we get "id_5" before "id_0", simply setting arr[6] throws if length < 5.
-            ; So we should parse everything first or just use a temporary Map then convert to Array?
-            ; Or just use Map for these internals?
-            ; winsInfos[n][type] is [] (Array).
-
-            ; Let's assume sequential reading mostly, but better to use Map for temporary loading if indices are sparse (unlikely for valid data).
-            ; Actually, let's use the .Push() approach if indices are 0, 1, 2... sorted.
-            ; But IniRead order isn't guaranteed.
-
-            ; Re-read specific keys by expected index might be safer than iterating keys.
-            ; But iterating keys is faster.
-
-            ; Let's try to set it.
-            if (winsInfos[n][type].Length < idx) {
-              winsInfos[n][type].Length := idx
-            }
-            winsInfos[n][type][idx] := v
+          type := parts[1]
+          if (tempData.Has(type)) {
+            idx := Integer(parts[2]) + 1
+            tempData[type][idx] := v
           }
         }
       }
     }
 
-    ; Filter out empty slots if any?
+    ; Populate arrays in order
+    for type, indices in tempData {
+      maxIdx := 0
+      for i, _ in indices {
+        if (i > maxIdx)
+          maxIdx := i
+      }
+      Loop maxIdx {
+        val := indices.Has(A_Index) ? indices[A_Index] : ""
+        winsInfos[n][type].Push(val)
+      }
+    }
   }
 }
 
@@ -148,29 +136,11 @@ getWinInfo(btnx, bindType) {
       Loop {
         if (i > 100) ; Safety break
           break
-        ; Check if key exists to delete? brute force delete safe enough
-        ; IniDelete doesn't error if key missing usually? V2 docs: "If the value cannot be written... Error"
-        ; IniDelete: "deletes a value".
         try IniDelete(winsInfosRecorderPath, btnx, "class_" . i)
         try IniDelete(winsInfosRecorderPath, btnx, "exe_" . i)
         try IniDelete(winsInfosRecorderPath, btnx, "id_" . i)
-        
         i++
       }
-        ; We don't know how many there were, so this loop is heuristic.
-        ; A better way is to read all keys and delete them, but AHK V2 IniDelete section is easier?
-        ; But we want to keep bindType? No, bindType is overwritten.
-        ; Wait, if we assume 1 index, we only need to write _0.
-        ; The V1 code loop: "loop, % infosGx.id.MaxIndex()" (removes others).
-
-        ; Let's just delete the section and rewrite for cleanliness?
-        ; But we just wrote key_0.
-        ; Ideally: Delete section, Write new.
-      ; Implementation choice: Delete section first, then write.
-    }
-    else {
-      MsgBox("WIR ini missing")
-      return
     }
   }
   else if (bindType == 2) ; Multi Window (Group)
@@ -425,14 +395,7 @@ tapTimesFunc(btnx) {
       tapTimes[btnx] := 2
     } else {
       tapTimes[btnx] := 3
-      ; ToolTip("Tap: 3 (App Mode) - Btn: " . btnx)
-      ; Trigger immediately on 3rd tap? V1 commented out gosub.
     }
-  } else {
-     ; if (tapTimes[btnx] == 1)
-        ; ToolTip("Tap: 1 (Single) - Btn: " . btnx)
-     ; else if (tapTimes[btnx] == 2)
-        ; ToolTip("Tap: 2 (Group) - Btn: " . btnx)
   }
 }
 
@@ -455,9 +418,7 @@ doGetWinInfo() {
   tTapTimesx := tapTimes[winBtnx]
 
   if (tTapTimesx > 0 && winBtnx > -1) {
-    ; ToolTip("Executing Bind: Btn " . winBtnx . ", Type " . tTapTimesx)
     getWinInfo(winBtnx, tTapTimesx)
-    ; SetTimer(RemoveToolTip, -1000)
   }
 
   tapTimes[winBtnx] := 0

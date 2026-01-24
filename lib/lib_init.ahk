@@ -10,8 +10,8 @@ initAll() {
     loadingAnimation := "1"
     try {
         loadingAnimation := IniRead("CapsLock+settings.ini", "Global", "loadingAnimation", "1")
-        ; language read handled in settingsInit or here? 
-        ; Original code read language here too but commented out logic.
+    } catch {
+        loadingAnimation := "1"
     }
 
     if(loadingAnimation != "0")
@@ -29,14 +29,17 @@ initAll() {
 
     try {
         bindWinsInit()
+    } catch {
     }
 
     try {
         jsEval_init()
+    } catch {
     }
 
     try {
         SetTimer(youdaoApiInit, 1) ;初始化翻译api
+    } catch {
     }
 
     getDefaultBrowser()
@@ -44,10 +47,12 @@ initAll() {
     global needInitQ := 1 ;+q初始化标志位
     try {
         ; CLq() ;初始化+q - Disabled to prevent auto-show on startup
+    } catch {
     }
 
     try {
         SetTimer(mouseSpeedInit, 1)
+    } catch {
     }
 
     Suspend(false)
@@ -56,6 +61,7 @@ initAll() {
     {
         try {
             hideLoading()
+        } catch {
         }
     }
 }
