@@ -135,8 +135,13 @@ initQGui() {
     Hotkey("Up", QBar_Up)
     Hotkey("Down", QBar_Down)
     Hotkey("Esc", QBar_Close)
-    Hotkey("Enter", QBar_Enter)
     HotIf
+    
+    ; Use Default Button for Enter (Fixes IME Conflict)
+    ; When user presses Enter:
+    ; 1. If IME is open, IME consumes Enter.
+    ; 2. If IME is closed, Enter triggers this default button.
+    QGui.Add("Button", "x0 y0 w0 h0 Default Hidden").OnEvent("Click", QBar_Enter)
 
     QGui.OnEvent("Close", QGuiClose)
     
@@ -359,7 +364,7 @@ QBar_Down(*) {
 }
 
 QBar_Enter(*) {
-    global QGui, QLV, QEdit, CLSets
+    global QGui, QLV, QEdit, CLSets, starMenuObj
 
     row := QLV.GetNext(0, "F")
     
@@ -370,41 +375,90 @@ QBar_Enter(*) {
     ; --- 1. Execute Selected Item ---
     if (row > 0) {
         key := QLV.GetText(row, 2)
+        executed := false
         
-        ; Execute Logic
+        ; QRun
         if (CLSets.Has("QRun") && CLSets["QRun"].Has(key)) {
             item := CLSets["QRun"][key]
             path := item["setValue"]
             try Run(path)
-        } else if (CLSets.Has("QWeb") && CLSets["QWeb"].Has(key)) {
+            executed := true
+        } 
+        ; QWeb
+        else if (CLSets.Has("QWeb") && CLSets["QWeb"].Has(key)) {
             item := CLSets["QWeb"][key]
             url := item["setValue"]
-            ; Replace %s ?
-            finalUrl := StrReplace(url, "%s", inputVal) ; Simplistic
+            finalUrl := StrReplace(url, "%s", inputVal)
+            finalUrl := StrReplace(finalUrl, "{q}", inputVal)
             try Run(finalUrl)
-        } else if (starMenuObj.Has(key)) {
-            ; Start Menu Item (Object: {path, icon})
+            executed := true
+        } 
+        ; Start Menu
+        else if (starMenuObj.Has(key)) {
             try Run(starMenuObj[key].path)
-        } else {
-             ; Might be a search command like "g test" where key is "g test"
-             ; This assumes the list always maps to keys in sets.
-             ; For now fallback to simple Run if it looks like a file/URL?
-             ; Or just do nothing as it shouldn't happen if selected.
+            executed := true
+        } 
+        ; QSearch (Logic for "Command Parameter")
+        else if (CLSets.Has("QSearch")) {
+             ; Regex to parse: Cmd + Whitespace + Param
+             ; matches "cmd   param" -> cmd="cmd", param="param"
+             if RegexMatch(key, "^\s*(\S+)\s+(.*)$", &m) {
+                 cmd := m[1]
+                 param := m[2]
+             } else {
+                 cmd := key
+                 param := ""
+             }
+             param := Trim(param)
+             
+             if (CLSets["QSearch"].Has(cmd)) {
+                 item := CLSets["QSearch"][cmd]
+                 url := item["setValue"]
+                 finalUrl := StrReplace(url, "%s", param)
+                 finalUrl := StrReplace(finalUrl, "{q}", param)
+                 try Run(finalUrl)
+                 executed := true
+             }
+        }
+        
+        if (!executed) {
+            try Run(key) ; Fallback for raw commands
         }
     } 
-    ; --- 2. Fallback: No Selection or Explicit Override -> Web Search ---
+    ; --- 2. Fallback: No Selection -> Default Web Search or Direct QSearch ---
     else {
-        ; No item selected (List hidden or user ignored it)
-        ; Default behavior: Search with Default Engine (Google)
-        ; Unless it looks like a URL?
-        
-        if RegExMatch(inputVal, "^(https?://|www\.)")
-            target := inputVal
-        else
-            target := "https://www.google.com/search?q=" . inputVal
+        isQSearch := false
+        if (CLSets.Has("QSearch")) {
+             if RegexMatch(inputVal, "^\s*(\S+)\s+(.*)$", &m) {
+                 cmd := m[1]
+                 param := m[2]
+             } else {
+                 cmd := inputVal
+                 param := ""
+             }
+             param := Trim(param)
+             
+             if (CLSets["QSearch"].Has(cmd)) {
+                 item := CLSets["QSearch"][cmd]
+                 url := item["setValue"]
+                 finalUrl := StrReplace(url, "%s", param)
+                 finalUrl := StrReplace(finalUrl, "{q}", param)
+                 try Run(finalUrl)
+                 isQSearch := true
+             }
+        }
+
+
+        if (!isQSearch) {
+            if RegExMatch(inputVal, "^(https?://|www\.)")
+                target := inputVal
+            else
+                target := "https://www.google.com/search?q=" . inputVal
             
-        try Run(target)
+            try Run(target)
+        }
     }
+
 
     QGui.Hide()
 }

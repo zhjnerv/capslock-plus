@@ -5,6 +5,7 @@
 settingsInit() {
     global settingsModifyTime
     global CLSets := Map() ;保存Capslock+settings.ini的各种设置
+    CLSets.CaseSense := "Off"
     CLSets["length"] := Map() ;保存settings.ini中每个字段的关键词数量
     global setsChanges := Map() ;保存哪些设置经过改变
     
@@ -178,6 +179,7 @@ settingsSectionInit(sectionValue)
     if (!CLSets["length"].Has(sectionValue)) ; Not initialized
     {
         CLSets[sectionValue] := Map()
+        CLSets[sectionValue].CaseSense := "Off"
         _clsetsSec := CLSets[sectionValue]
         CLSets["length"][sectionValue] := 0
         
