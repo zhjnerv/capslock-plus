@@ -770,3 +770,15 @@ keyFunc_winbind_binding(n){
     try tapTimesFunc(n) ; In lib_bindWins.ahk
     return
 }
+
+keyFunc_winPin(){
+    try {
+        WinSetAlwaysOnTop(-1, "A")
+        exStyle := WinGetExStyle("A")
+        if (exStyle & 0x8)
+            showMsg("Win Pin", 500)
+        else
+            showMsg("Win Unpin", 500)
+    }
+    return
+}

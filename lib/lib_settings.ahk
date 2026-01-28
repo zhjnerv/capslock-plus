@@ -158,6 +158,13 @@ getShortSetKey(str)
 settingsSectionInit(sectionValue)
 {
     isChange := 0 
+    
+    ; Reset change tracking maps for this section to prevent double-processing old changes
+    global setsChanges
+    setsChanges[sectionValue]["deleted"] := Map()
+    setsChanges[sectionValue]["modified"] := Map()
+    setsChanges[sectionValue]["appended"] := Map()
+    
     try {
         settingsKeys := IniRead("CapsLock+settings.ini", sectionValue)
     } catch {
@@ -258,15 +265,11 @@ settingsSectionInit(sectionValue)
 
             for key, value in setsChanges[sectionValue]["deleted"]
             {
-                _clsetsSec.Delete(getShortSetKey(key)) ; Remove by Key? Wait, deleted stores _fullKey.
-                ; _clsetsSec is Map where key is shortKey. 
-                ; In the loop above: `for key, value in _clsetsSec`. `key` is shortKey. 
-                ; V1 code: `setsChanges[sectionValue].deleted.insert(_fullKey)`
-                ; V1 cleanup: `for key, value in ...deleted ... _clsetsSec.remove(value)` 
-                ; So we need to remove by shortKey.
-                
-                _clsetsSec.Delete(getShortSetKey(key))
-                CLSets["length"][sectionValue]--
+                shortKey := getShortSetKey(key)
+                if _clsetsSec.Has(shortKey) {
+                    _clsetsSec.Delete(shortKey)
+                    CLSets["length"][sectionValue]--
+                }
             }
             
             ; Check for new keys
@@ -317,8 +320,10 @@ settingsSectionInit(sectionValue)
 
             for key, value in setsChanges[sectionValue]["deleted"]
             {
-                _clsetsSec.Delete(value)
-                CLSets["length"][sectionValue]--
+                if _clsetsSec.Has(value) {
+                    _clsetsSec.Delete(value)
+                    CLSets["length"][sectionValue]--
+                }
             }
             
             for _, value in keyArr

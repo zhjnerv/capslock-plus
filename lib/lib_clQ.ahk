@@ -388,8 +388,26 @@ QBar_Enter(*) {
         else if (CLSets.Has("QWeb") && CLSets["QWeb"].Has(key)) {
             item := CLSets["QWeb"][key]
             url := item["setValue"]
-            finalUrl := StrReplace(url, "%s", inputVal)
-            finalUrl := StrReplace(finalUrl, "{q}", inputVal)
+            
+            ; Parse param from inputVal (Command + Param) based on the Key
+            ; If inputVal starts with Key, strip it.
+            ; RegEx: ^\s*\Qkey\E\s+(.*)$
+            param := ""
+            if RegExMatch(inputVal, "i)^\s*\Q" . key . "\E\s+(.*)$", &m) {
+                param := m[1]
+            } else if (inputVal = key) {
+                param := ""
+            } else {
+                ; If inputVal doesn't start with key (e.g. partial match selected?), use whole input?
+                ; Or maybe inputVal IS the param if logic differs?
+                ; Assuming standard usage: user typed "wiki foo", selected "wiki".
+                param := inputVal ; Fallback, but likely won't happen if key matches. 
+                ; Actually if I type "wiki" and select it, param is empty.
+            }
+            param := Trim(param)
+
+            finalUrl := StrReplace(url, "%s", param)
+            finalUrl := StrReplace(finalUrl, "{q}", param)
             try Run(finalUrl)
             executed := true
         } 

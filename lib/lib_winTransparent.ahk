@@ -5,7 +5,7 @@ global transpWinId := 0
 global allowWinTranspToggle := false
 global transp := 255
 
-winTransparent() {
+keyFunc_winTransparent() {
     global winTranSetting, allowWinTranspToggle, transpWinId, transp
 
     if (!winTranSetting) {
