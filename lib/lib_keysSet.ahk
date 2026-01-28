@@ -160,7 +160,17 @@ keySchemeInit_capslox(){
         "caps_lalt_space", "keyFunc_doNothing",
         "caps_lalt_ralt", "keyFunc_doNothing",
         "caps_lalt_wheelUp", "keyFunc_mouseSpeedIncrease",
-        "caps_lalt_wheelDown", "keyFunc_mouseSpeedDecrease"
+        "caps_lalt_wheelDown", "keyFunc_mouseSpeedDecrease",
+        "caps_lwin_1", "keyFunc_winbind_binding(1)",
+        "caps_lwin_2", "keyFunc_winbind_binding(2)",
+        "caps_lwin_3", "keyFunc_winbind_binding(3)",
+        "caps_lwin_4", "keyFunc_winbind_binding(4)",
+        "caps_lwin_5", "keyFunc_winbind_binding(5)",
+        "caps_lwin_6", "keyFunc_winbind_binding(6)",
+        "caps_lwin_7", "keyFunc_winbind_binding(7)",
+        "caps_lwin_8", "keyFunc_winbind_binding(8)",
+        "caps_lwin_9", "keyFunc_winbind_binding(9)",
+        "caps_lwin_0", "keyFunc_winbind_binding(10)"
     )
 
     for k, v in defaults

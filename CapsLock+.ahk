@@ -117,6 +117,11 @@ initCapsKeys() {
             finalKey := "!" . suffix
             try Hotkey(finalKey, keyDispatcher)
         }
+        else if (SubStr(keyName, 1, 10) == "caps_lwin_") {
+            suffix := SubStr(keyName, 11)
+            finalKey := "#" . suffix
+            try Hotkey(finalKey, keyDispatcher)
+        }
         else if (SubStr(keyName, 1, 5) == "caps_") {
             suffix := SubStr(keyName, 6)
             
@@ -163,6 +168,10 @@ keyDispatcher(ThisHotkey) {
     cleanKey := ThisHotkey
     if (SubStr(cleanKey, 1, 1) == "!") {
         prefix := "caps_lalt_"
+        cleanKey := SubStr(cleanKey, 2)
+    }
+    else if (SubStr(cleanKey, 1, 1) == "#") {
+        prefix := "caps_lwin_"
         cleanKey := SubStr(cleanKey, 2)
     }
     else if (SubStr(cleanKey, 1, 1) == "+") {
