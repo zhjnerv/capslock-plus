@@ -96,61 +96,45 @@ initCapsKeys() {
         
         realKey := ""
         if (SubStr(keyName, 1, 10) == "caps_lalt_") {
-            realKey := "!^" . SubStr(keyName, 11) ; LAlt isn't purely !, CapsLock+ is a mode.
-            ; Actually, if clState is 1, CapsLock is logically "down".
-            ; So "caps_lalt_a" means "When clState=1 AND LAlt is down, press A".
-            ; But V2 HotIf expression can handle this.
-            
-            ; However, let's stick to the simplest V2 dynamic binding:
-            ; HotIf only checks clState.
-            ; Then we bind "LAlt & a" ? 
-            ; Or do we bind "a" and inside the function check for LAlt?
-            
-            ; Let's look at keyFunc logic. Some functions are specific.
-            ; But keyset has specific entries for "caps_lalt_...".
-            
-            ; Simpler approach:
-            ; If it matches "caps_lalt_X", we bind "!X".
-            ; If it matches "caps_X", we bind "X".
-            
+            prefix := "!"
             suffix := SubStr(keyName, 11)
-            finalKey := "!" . suffix
-            try Hotkey(finalKey, keyDispatcher)
         }
         else if (SubStr(keyName, 1, 10) == "caps_lwin_") {
+            prefix := "#"
             suffix := SubStr(keyName, 11)
-            finalKey := "#" . suffix
-            try Hotkey(finalKey, keyDispatcher)
         }
         else if (SubStr(keyName, 1, 5) == "caps_") {
+            prefix := ""
             suffix := SubStr(keyName, 6)
-            
-            ; Need to handle special key names map if necessary, but AHK v2 is good.
-            ; "semicolon" -> ";"
-            if (suffix == "semicolon") 
-                suffix := ";"
-            else if (suffix == "quote")
-                suffix := "'"
-            else if (suffix == "comma")
-                suffix := ","
-            else if (suffix == "dot")
-                suffix := "."
-            else if (suffix == "slash")
-                suffix := "/"
-            else if (suffix == "leftSquareBracket")
-                suffix := "["
-            else if (suffix == "rightSquareBracket")
-                suffix := "]"
-            else if (suffix == "equal")
-                suffix := "="
-            else if (suffix == "minus")
-                suffix := "-"
-            else if (suffix == "backquote")
-                suffix := "``"
-
-            finalKey := suffix
-            try Hotkey(finalKey, keyDispatcher) 
         }
+        else {
+            continue
+        }
+
+        ; Map special names to symbols
+        if (suffix == "semicolon") 
+            suffix := ";"
+        else if (suffix == "quote")
+            suffix := "'"
+        else if (suffix == "comma")
+            suffix := ","
+        else if (suffix == "dot")
+            suffix := "."
+        else if (suffix == "slash")
+            suffix := "/"
+        else if (suffix == "leftSquareBracket")
+            suffix := "["
+        else if (suffix == "rightSquareBracket")
+            suffix := "]"
+        else if (suffix == "equal")
+            suffix := "="
+        else if (suffix == "minus")
+            suffix := "-"
+        else if (suffix == "backquote")
+            suffix := "``"
+
+        finalKey := prefix . suffix
+        try Hotkey(finalKey, keyDispatcher) 
     }
     
     HotIf ; Turn off context
