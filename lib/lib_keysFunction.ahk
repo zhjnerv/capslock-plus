@@ -143,6 +143,11 @@ keyFunc_translate(){
             selText := A_Clipboard
             ydTranslate(selText)
         }
+        else
+        {
+            ; No text selected, open empty translation dialog
+            ydTranslate("")
+        }
         A_Clipboard := ClipboardOld
     }
     SetTimer(setTransGuiActive, -400)
