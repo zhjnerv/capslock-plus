@@ -19,16 +19,28 @@ youdaoApiInit() {
         DeepLXApiString := "http://localhost:1188/translate" ; Default DeepLX endpoint?
 }
 
-; 添加语言检测函数
-IsChineseText(text) {
-    ; 检查文本是否包含中文字符
-    Loop Parse, text
+; 判断文本是否主要是中文 (按比例判断)
+IsMainlyChinese(text, threshold := 0.3) {
+    if (StrLen(text) == 0)
+        return false
+    
+    chineseCount := 0
+    totalCount := 0
+    
+    ; 移除所有空白字符后统计总长度，使比重判断更准确
+    cleanText := RegExReplace(text, "\s", "")
+    if (StrLen(cleanText) == 0)
+        return false
+
+    Loop Parse, cleanText
     {
-        ; 检查每个字符是否在中文Unicode范围内 (基本汉字范围: 0x4E00-0x9FFF)
+        ; 检查每个字符是否在中文Unicode范围内
         if (Ord(A_LoopField) >= 0x4E00 && Ord(A_LoopField) <= 0x9FFF)
-            return true
+            chineseCount++
+        totalCount++
     }
-    return false
+    
+    return (chineseCount / totalCount) >= threshold
 }
 
 ydTranslate(ss)
@@ -128,11 +140,13 @@ DeepLApi() {
         data := Map()
         data["text"] := NativeString
 
-        if (IsChineseText(NativeString)) {
+        ; 如果中文占比高 (>=30%)，则认为是中文，翻译成英文
+        if (IsMainlyChinese(NativeString)) {
             data["source_lang"] := "ZH"
             data["target_lang"] := "EN"
         } else {
-            data["source_lang"] := "EN"
+            ; 否则认为是非中文 (英文/日文等)，翻译成中文
+            data["source_lang"] := "auto" ; 源语言设为 auto 让 DeepL 处理更好
             data["target_lang"] := "ZH"
         }
 
