@@ -170,6 +170,9 @@ DeepLApi() {
                 primaryTranslation := transJson["data"]
                 alternativeTranslations := transJson.Has("alternatives") ? transJson["alternatives"] : []
 
+                ; 自动复制到剪贴板
+                A_Clipboard := primaryTranslation
+
                 MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
                 MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
 
