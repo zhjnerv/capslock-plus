@@ -70,6 +70,9 @@ ShowPromptSelection()
     OpenAIgs.Show("AutoSize Center")
     WinSetTransColor("010203", gsHwnd)
 
+    ; 点击外部自动取消
+    OnMessage(0x0006, OpenAI_WM_ACTIVATE)
+
 
     
     ; 添加热键 context
@@ -194,6 +197,9 @@ CallOpenAIAPI()
         
         OpenAIResGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin))
         WinSetTransColor("010203", openaiGuiHwnd)
+        
+        ; 点击外部自动隐藏
+        OnMessage(0x0006, OpenAI_WM_ACTIVATE)
         
         try ControlFocus(openAI_transEditHwnd)
 
@@ -369,4 +375,24 @@ ButtonOK_OpenAI(*) {
 
     ; 重新调用 OpenAI_Cap 函数处理新文本
     CallOpenAIAPI()
+}
+
+/**
+ * 处理 WM_ACTIVATE 消息 (0x06)，当 OpenAI 相关窗口失去激活状态时隐藏或取消
+ */
+OpenAI_WM_ACTIVATE(wParam, lParam, msg, hwnd) {
+    global OpenAIResGui, openaiGuiHwnd, OpenAIgs
+    ; wParam == 0 表示 WA_INACTIVE（失去激活）
+    if (wParam == 0) {
+        ; 如果是结果窗口失去焦点，直接隐藏
+        if (IsSet(openaiGuiHwnd) && hwnd == openaiGuiHwnd) {
+            if (IsSet(OpenAIResGui) && OpenAIResGui) {
+                try OpenAIResGui.Hide()
+            }
+        }
+        ; 如果是 Prompt 选择窗口失去焦点，触发取消逻辑
+        else if (IsSet(OpenAIgs) && OpenAIgs && hwnd == OpenAIgs.Hwnd) {
+            try CancelPromptFile()
+        }
+    }
 }

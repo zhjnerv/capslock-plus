@@ -86,6 +86,9 @@ ydTranslate(ss)
             transGui.OnEvent("Escape", (*) => transGui.Hide())
             transGui.OnEvent("Close", (*) => transGui.Hide())
 
+            ; 当窗口失去激活状态（如点击外部）时自动隐藏
+            OnMessage(0x0006, TransGui_WM_ACTIVATE)
+
             ; Hidden default button for Enter to submit
             btn := transGui.Add("Button", "x-100 y-100 Default", "OK")
             btn.OnEvent("Click", TransGuiSubmit)
@@ -199,4 +202,17 @@ DeepLApi() {
 
     try ControlSetText(MsgBoxStr, transEditHwnd)
     ; try ControlFocus(transEditHwnd)
+}
+
+/**
+ * 处理 WM_ACTIVATE 消息 (0x06)，当翻译窗口失去激活状态时隐藏它
+ */
+TransGui_WM_ACTIVATE(wParam, lParam, msg, hwnd) {
+    global transGui, transGuiHwnd
+    ; wParam == 0 表示 WA_INACTIVE（失去激活）
+    if (wParam == 0 && hwnd == transGuiHwnd) {
+        if (IsSet(transGui) && transGui) {
+            try transGui.Hide()
+        }
+    }
 }
