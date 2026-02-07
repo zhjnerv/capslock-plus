@@ -53,6 +53,7 @@ CLq() {
             QGui.Show("Center") ; Show logic
             
         QEdit.Focus()
+        SendMessage(0xB1, 0, 0, QEdit.Hwnd) ; Set caret to start (EM_SETSEL 0,0)
     } else {
         initQGui() ; Safety fallback
     }
