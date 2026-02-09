@@ -22,7 +22,9 @@ CLq() {
         needInitQ := 0
     }
 
-    selText := getSelText()
+    selText := Explorer_GetSelection()
+    if (selText == "")
+        selText := getSelText()
 
     ; Determine initial mode based on selection
     if (selText != "") {
@@ -285,8 +287,20 @@ doWhenChanged(*) {
     if InStr(searchText, " ") {
         parts := StrSplit(searchText, " ")
         cmd := parts[1]
-        if (CLSets["QSearch"].Has(cmd)) {
+        if (CLSets.Has("QSearch") && CLSets["QSearch"].Has(cmd)) {
              QLV.Insert(1, "Icon2", "Search", searchText, 0)
+        } else if (CLSets.Has("QRun") && CLSets["QRun"].Has(cmd)) {
+            ; Also allow QRun checks to populate list (or just ensure it's not empty so Enter works on it?)
+            ; The filtered list might be empty because "PS file" does not contain "PS " (exact string search) 
+            ; But "PS" key is "PS". 
+            ; Wait, QRun filter above uses `if InStr(key, searchText)`. 
+            ; If key="PS", searchText="PS file", InStr("PS", "PS file") is FALSE.
+            ; So we need to explicitly re-add or allow matching if searchText starts with key.
+             QLV.Insert(1, "Icon1", "Run", cmd, 0) ; Insert the CMD so it can be selected? Or insert the whole text?
+             ; If we insert whole text "PS file", then QRun execution logic needs to handle that Key is "PS file" which is NOT in CLSets["QRun"].
+             ; Better to insert "PS" (the valid key) or ensure standard QRun logic handles it.
+             ; The loop below in QBar_Enter -> "Execute Selected Item" checks `if (CLSets["QRun"].Has(key))`.
+             ; So we MUST insert the KEY "PS" into the list, not the full string.
         }
     }
     
@@ -304,31 +318,6 @@ doWhenChanged(*) {
         reqH := itemCount * rowH + fixDpi(8) ; slight buffer
         
         finalListH := Min(reqH, maxListH)
-        
-        ; Resize ListView first
-        ; AHK v2 GuiControl.Move(X, Y, W, H) - trailing commas are not valid if strict
-        ; The error says "Too many parameters", likely because I used `,,,(W), (H)` 
-        ; but Move only accepts 4 optional params? No, Move([X, Y, W, H, Draw]). 
-        ; Actually, parameters are passed individually, not as blank commas unless explicitly skipping.
-        ; Let's be explicit to avoid "Too many parameters" if some overload is weird.
-        ; Actually, the issue might be `margin` or `guiW` interpretation or just syntax.
-        ; Wait, QLV.Move(,, W, H) is correct for v2.
-        ; Ah, the comma syntax in v2 function calls: Move(X, Y, W, H). 
-        ; If I skip X and Y, it should be Move(,, W, H).
-        ; Let's try explicit implementation or just check docs.
-        ; Docs: Move([X, Y, W, H, Draw])
-        ; Error "Too many parameters" implies I passed more than 5? 
-        ; QLV.Move(,,,(guiW - 2*margin), finalListH) -> is parsed as (unset, unset, unset, W, H). 3 unsets + 2 args = 5 args.
-        ; Wait, Comma 1: X (unset)
-        ; Comma 2: Y (unset)
-        ; Comma 3: W (unset)
-        ; Comma 4: Arg 4? 
-        ; Correct usage: Ctrl.Move([x, y, w, h, draw])
-        ; My call: QLV.Move(, , , Width, Height) -> X=skip, Y=skip, W=skip, H=Width, Draw=Height. 
-        ; That is wrong logic.
-        ; I want to skip X and Y, set W and H.
-        ; QLV.Move(,, guiW-2*margin, finalListH) 
-        ; X(skip), Y(skip), W(set), H(set)
         
         QLV.Move(,, guiW - 2*margin, finalListH)
         QLV.Visible := true
@@ -382,7 +371,19 @@ QBar_Enter(*) {
         if (CLSets.Has("QRun") && CLSets["QRun"].Has(key)) {
             item := CLSets["QRun"][key]
             path := item["setValue"]
-            try Run(path)
+            
+            ; Check for params in inputVal
+            param := ""
+            if RegExMatch(inputVal, "i)^\s*\Q" . key . "\E\s+(.*)$", &m) {
+                param := m[1]
+            }
+            
+            if (param != "") {
+                try Run(path . " " . param)
+            } else {
+                try Run(path)
+            }
+                
             executed := true
         } 
         ; QWeb
@@ -390,20 +391,14 @@ QBar_Enter(*) {
             item := CLSets["QWeb"][key]
             url := item["setValue"]
             
-            ; Parse param from inputVal (Command + Param) based on the Key
-            ; If inputVal starts with Key, strip it.
-            ; RegEx: ^\s*\Qkey\E\s+(.*)$
+            ; Parse param from inputVal
             param := ""
             if RegExMatch(inputVal, "i)^\s*\Q" . key . "\E\s+(.*)$", &m) {
                 param := m[1]
             } else if (inputVal = key) {
                 param := ""
             } else {
-                ; If inputVal doesn't start with key (e.g. partial match selected?), use whole input?
-                ; Or maybe inputVal IS the param if logic differs?
-                ; Assuming standard usage: user typed "wiki foo", selected "wiki".
-                param := inputVal ; Fallback, but likely won't happen if key matches. 
-                ; Actually if I type "wiki" and select it, param is empty.
+                param := inputVal 
             }
             param := Trim(param)
 
@@ -419,8 +414,6 @@ QBar_Enter(*) {
         } 
         ; QSearch (Logic for "Command Parameter")
         else if (CLSets.Has("QSearch")) {
-             ; Regex to parse: Cmd + Whitespace + Param
-             ; matches "cmd   param" -> cmd="cmd", param="param"
              if RegexMatch(key, "^\s*(\S+)\s+(.*)$", &m) {
                  cmd := m[1]
                  param := m[2]
@@ -444,31 +437,41 @@ QBar_Enter(*) {
             try Run(key) ; Fallback for raw commands
         }
     } 
-    ; --- 2. Fallback: No Selection -> Default Web Search or Direct QSearch ---
+    ; --- 2. Fallback: No Selection -> Default Web Search or Direct QSearch/QRun ---
     else {
-        isQSearch := false
-        if (CLSets.Has("QSearch")) {
-             if RegexMatch(inputVal, "^\s*(\S+)\s+(.*)$", &m) {
-                 cmd := m[1]
-                 param := m[2]
-             } else {
-                 cmd := inputVal
-                 param := ""
-             }
-             param := Trim(param)
-             
-             if (CLSets["QSearch"].Has(cmd)) {
-                 item := CLSets["QSearch"][cmd]
-                 url := item["setValue"]
-                 finalUrl := StrReplace(url, "%s", param)
-                 finalUrl := StrReplace(finalUrl, "{q}", param)
-                 try Run(finalUrl)
-                 isQSearch := true
-             }
+        isCustomCmd := false
+        
+        if RegexMatch(inputVal, "^\s*(\S+)\s+(.*)$", &m) {
+             cmd := m[1]
+             param := m[2]
+        } else {
+             cmd := inputVal
+             param := ""
+        }
+        param := Trim(param)
+
+        ; Check QSearch
+        if (CLSets.Has("QSearch") && CLSets["QSearch"].Has(cmd)) {
+             item := CLSets["QSearch"][cmd]
+             url := item["setValue"]
+             finalUrl := StrReplace(url, "%s", param)
+             finalUrl := StrReplace(finalUrl, "{q}", param)
+             try Run(finalUrl)
+             isCustomCmd := true
+        }
+        ; Check QRun (Added fallback)
+        else if (CLSets.Has("QRun") && CLSets["QRun"].Has(cmd)) {
+            item := CLSets["QRun"][cmd]
+            path := item["setValue"]
+            if (param != "") {
+                try Run(path . " " . param)
+            } else {
+                try Run(path)
+            }
+            isCustomCmd := true
         }
 
-
-        if (!isQSearch) {
+        if (!isCustomCmd) {
             if RegExMatch(inputVal, "^(https?://|www\.)")
                 target := inputVal
             else

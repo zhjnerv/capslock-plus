@@ -93,6 +93,11 @@
 - **JSON 解析**：集成 `JSON.parse` (第三方库)，替换原本的 `eval` 或正则解析。
 - **GUI 坑点**：`WinSetTransColor` 会导致控件背景透明从而看不清文字，V2 中建议直接控制背景色或仅设置整体透明度。
 
+### 4. CLQ 选中文件获取与参数执行 (CLQ Enhancement)
+- **文件路径获取**: 新增 `Explorer_GetSelection()` (lib_functions.ahk)，使用 COM 对象 (`Shell.Application`) 主动从活跃的资源管理器窗口获取选中文件的完整路径。
+- **参数支持**: 修复了 `QRun` 命令 (如 PS) 无法接收参数的问题。现在 `QBar_Enter` 会解析输入内容，如果输入以 Keys 中可以找到的命令开头（例如 `PS image.jpg` 且 `PS` 是 PS photshop 的 key），则会提取参数并传递给 `Run`。
+- **列表逻辑优化**: `doWhenChanged` 中增加了对 `QRun` 命令的强制保留逻辑，防止输入参数后因不匹配 Key 而被过滤掉。
+
 ---
 
 ## 📝 调试与维护技巧

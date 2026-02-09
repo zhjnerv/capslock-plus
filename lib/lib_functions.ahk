@@ -431,3 +431,44 @@ applyModernStyle(hwnd) {
     NumPut("int", 1, margins, 12)
     DllCall("dwmapi\DwmExtendFrameIntoClientArea", "ptr", hwnd, "ptr", margins)
 }
+
+Explorer_GetSelection() {
+    hwnd := WinExist("A")
+    if !hwnd
+        return ""
+        
+    processName := ""
+    try {
+        processName := WinGetProcessName(hwnd)
+        class := WinGetClass(hwnd)
+    } catch {
+        return ""
+    }
+    
+    if (processName != "explorer.exe")
+        return ""
+        
+    res := ""
+    if (class ~= "Progman|WorkerW") {
+        ; Desktop handled via ControlGet on SysListView321? 
+        ; V2 lacks direct ControlGet List command. 
+        ; Attempting default Clipboard fallback or skipping Desktop specific logic for now 
+        ; unless using raw SendMessage.
+        return "" 
+    } else if (class ~= "(Cabinet|Explore)WClass") {
+        try {
+            for window in ComObject("Shell.Application").Windows {
+                try {
+                    if (window.hwnd == hwnd) {
+                        sel := window.Document.SelectedItems
+                        for item in sel
+                            res .= item.path . "`n"
+                        break
+                    }
+                }
+            }
+        }
+    }
+    
+    return Trim(res, "`n")
+}
