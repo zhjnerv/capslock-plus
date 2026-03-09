@@ -65,6 +65,7 @@ This section lists the most commonly used defaults from the current codebase. Fo
 | `CapsLock + F5` | Reload the script |
 | `CapsLock + F6` | Toggle always-on-top for the active window |
 | `CapsLock + F12` | Toggle the independent clipboard feature |
+| `Double-tap CapsLock` | Open a terminal in the current Explorer / Desktop / Total Commander directory and bring it to the front |
 | `CapsLock + C / X / V` | Copy / cut / paste using clipboard slot 1 |
 | `CapsLock + LAlt + C / X / V` | Copy / cut / paste using clipboard slot 2 |
 | `CapsLock + 1..0` | Activate a bound window |
@@ -117,6 +118,7 @@ In the current repository, translation works like this:
 - `CapsLock + F6`: toggle always-on-top for the active window
 - `CapsLock + F4`: enter transparency adjustment mode; use the wheel to change opacity, and short tap behavior toggles the default transparent state
 - `CapsLock + 1..0` / `CapsLock + LAlt + 1..0`: bind and activate windows
+- double-tap `CapsLock`: open a terminal in the current Explorer, Desktop, or active Total Commander panel directory and bring it to the front, preferring Windows Terminal and falling back to PowerShell
 
 Relevant implementations are in [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk), [lib/lib_winTransparent.ahk](lib/lib_winTransparent.ahk), and [lib/lib_bindWins.ahk](lib/lib_bindWins.ahk).
 

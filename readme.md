@@ -65,6 +65,7 @@ CapsLock+ 是一个把 `CapsLock` 改造成高频效率键的桌面增强工具�
 | `CapsLock + F5` | 重载脚本 |
 | `CapsLock + F6` | 切换当前窗口置顶 |
 | `CapsLock + F12` | 切换独立剪贴板功能开关 |
+| `连按两下 CapsLock` | 在当前资源管理器 / 桌面 / Total Commander 目录打开终端并切到前台 |
 | `CapsLock + C / X / V` | 独立剪贴板 1 的复制 / 剪切 / 粘贴 |
 | `CapsLock + LAlt + C / X / V` | 独立剪贴板 2 的复制 / 剪切 / 粘贴 |
 | `CapsLock + 1..0` | 激活已绑定窗口 |
@@ -117,6 +118,7 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 - `CapsLock + F6`：切换当前窗口置顶
 - `CapsLock + F4`：进入透明度调整模式，配合滚轮增减透明度，短按可切换默认透明状态
 - `CapsLock + 1..0` / `CapsLock + LAlt + 1..0`：窗口绑定与快速激活
+- 连按两下 `CapsLock`：在当前资源管理器、桌面或 Total Commander 当前面板目录打开终端并切到前台，优先使用 Windows Terminal，不可用时回退到 PowerShell
 
 相关实现分别在 [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk)、[lib/lib_winTransparent.ahk](lib/lib_winTransparent.ahk) 和 [lib/lib_bindWins.ahk](lib/lib_bindWins.ahk)。
 

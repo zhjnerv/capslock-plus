@@ -63,6 +63,9 @@ SetTimer(initAll, -400)
 global clState := 0      
 global clUsed := 0       
 global ctrlZ := 0        
+global capsTapPending := false
+global capsTapTick := 0
+global capsTapWindowMs := 500
 
 ; GUI Globals (Q-Search etc)
 global GuiHwnd := ""
@@ -228,19 +231,46 @@ keyDispatcher(ThisHotkey) {
     
     if (clUsed == 0) 
     {
-        if (keyset.Has("press_caps"))
-        {
-            try {
-                runFunc(keyset["press_caps"])
-            }
-        }
-        else
-        {
-             keyFunc_toggleCapsLock()
-        }
+        handleCapsTap()
     }
     
     clUsed := 0
+}
+
+handleCapsTap() {
+    global capsTapPending, capsTapTick, capsTapWindowMs
+
+    now := A_TickCount
+    if (capsTapPending && (now - capsTapTick <= capsTapWindowMs)) {
+        capsTapPending := false
+        capsTapTick := 0
+        SetTimer(commitPendingCapsTap, 0)
+        openTerminalAtActiveDirectory()
+        return
+    }
+
+    capsTapPending := true
+    capsTapTick := now
+    SetTimer(commitPendingCapsTap, -capsTapWindowMs)
+}
+
+commitPendingCapsTap() {
+    global capsTapPending, capsTapTick, keyset
+
+    if (!capsTapPending)
+        return
+
+    capsTapPending := false
+    capsTapTick := 0
+
+    if (keyset.Has("press_caps")) {
+        try {
+            runFunc(keyset["press_caps"])
+            return
+        }
+    }
+
+    keyFunc_toggleCapsLock()
 }
 
 setCapsLockTimeout() {

@@ -472,3 +472,262 @@ Explorer_GetSelection() {
     
     return Trim(res, "`n")
 }
+
+getActiveDirectoryPath() {
+    hwnd := WinExist("A")
+    if !hwnd
+        return ""
+
+    processName := ""
+    class := ""
+    try {
+        processName := WinGetProcessName(hwnd)
+        class := WinGetClass(hwnd)
+    } catch {
+        return ""
+    }
+
+    if (processName != "explorer.exe")
+    {
+        if (RegExMatch(processName, "i)^TotalCMD(64)?\.exe$"))
+            return getTotalCommanderDirectory(hwnd)
+        return ""
+    }
+
+    for window in ComObject("Shell.Application").Windows {
+        try {
+            if (window.hwnd != hwnd)
+                continue
+
+            selectedPath := ""
+            try {
+                sel := window.Document.SelectedItems
+                for item in sel {
+                    selectedPath := item.Path
+                    break
+                }
+            }
+
+            if (selectedPath != "")
+                return pathToDirectory(selectedPath)
+
+            currentPath := ""
+            try currentPath := window.Document.Folder.Self.Path
+            if (currentPath != "")
+                return pathToDirectory(currentPath)
+        }
+    }
+
+    if (class ~= "Progman|WorkerW")
+        return A_Desktop
+
+    return ""
+}
+
+getTotalCommanderDirectory(hwnd) {
+    pathControls := []
+
+    try {
+        for ctrlHwnd in WinGetControlsHwnd("ahk_id " . hwnd) {
+            ctrlText := getWindowTextByHwnd(ctrlHwnd)
+            ctrlText := Trim(ctrlText)
+            if (ctrlText == "")
+                continue
+
+            dirPath := normalizeTcPath(ctrlText)
+            if (dirPath == "")
+                continue
+
+            ctrlX := 0
+            ctrlY := 0
+            ctrlW := 0
+            ctrlH := 0
+            try WinGetPos(&ctrlX, &ctrlY, &ctrlW, &ctrlH, "ahk_id " . ctrlHwnd)
+
+            pathControls.Push({
+                hwnd: ctrlHwnd,
+                dir: dirPath,
+                centerX: ctrlX + ctrlW / 2
+            })
+        }
+    } catch {
+        return ""
+    }
+
+    if (pathControls.Length = 0) {
+        fallbackDir := getTotalCommanderDirectoryFromWindowText(hwnd)
+        if (fallbackDir != "")
+            return fallbackDir
+        return ""
+    }
+
+    if (pathControls.Length = 1)
+        return pathControls[1].dir
+
+    focusHwnd := 0
+    try {
+        focusClassNN := ControlGetFocus("ahk_id " . hwnd)
+        if (focusClassNN != "")
+            focusHwnd := ControlGetHwnd(focusClassNN, "ahk_id " . hwnd)
+    }
+
+    if (!focusHwnd)
+        return pathControls[pathControls.Length].dir
+
+    focusX := 0
+    focusY := 0
+    focusW := 0
+    focusH := 0
+    try WinGetPos(&focusX, &focusY, &focusW, &focusH, "ahk_id " . focusHwnd)
+
+    if (focusW = 0 && focusH = 0)
+        return pathControls[pathControls.Length].dir
+
+    focusCenterX := focusX + focusW / 2
+    bestDir := pathControls[1].dir
+    bestDistance := Abs(pathControls[1].centerX - focusCenterX)
+
+    for item in pathControls {
+        distance := Abs(item.centerX - focusCenterX)
+        if (distance < bestDistance) {
+            bestDistance := distance
+            bestDir := item.dir
+        }
+    }
+
+    return bestDir
+}
+
+normalizeTcPath(pathText) {
+    pathText := Trim(pathText)
+    if (pathText == "")
+        return ""
+
+    if (DirExist(pathText))
+        return pathText
+
+    pathMatch := ""
+    if (RegExMatch(pathText, "i)((?:[a-z]:\\|\\\\)[^`r`n]*?)(?=[\\/]\*\.\*$)", &pathMatch))
+        return pathToDirectory(pathMatch[1])
+
+    return ""
+}
+
+getTotalCommanderDirectoryFromWindowText(hwnd) {
+    allText := ""
+    try allText := WinGetText("ahk_id " . hwnd)
+    if (allText = "")
+        return ""
+
+    lastDir := ""
+    Loop Parse, allText, "`n", "`r" {
+        dirPath := normalizeTcPath(A_LoopField)
+        if (dirPath != "")
+            lastDir := dirPath
+    }
+
+    return lastDir
+}
+
+getWindowTextByHwnd(hwnd) {
+    if (!hwnd)
+        return ""
+
+    textLen := DllCall("user32\GetWindowTextLengthW", "ptr", hwnd, "int")
+    if (textLen <= 0)
+        return ""
+
+    buf := Buffer((textLen + 1) * 2, 0)
+    copied := DllCall("user32\GetWindowTextW", "ptr", hwnd, "ptr", buf, "int", textLen + 1, "int")
+    if (copied <= 0)
+        return ""
+
+    return StrGet(buf, copied, "UTF-16")
+}
+
+pathToDirectory(path) {
+    path := Trim(path, " `t`"`r`n")
+    if (path == "")
+        return ""
+
+    if DirExist(path)
+        return path
+
+    if FileExist(path) {
+        SplitPath(path, , &dirPath)
+        return dirPath
+    }
+
+    return ""
+}
+
+openTerminalAtActiveDirectory() {
+    targetDir := getActiveDirectoryPath()
+    if (targetDir == "") {
+        showMsg("No folder context", 1200)
+        return false
+    }
+
+    existingTerminalWindows := getTerminalWindowMap()
+
+    try {
+        terminalPid := 0
+        Run("wt.exe -d `"" . targetDir . "`"", , , &terminalPid)
+        activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
+        return true
+    } catch {
+    }
+
+    try {
+        escapedDir := StrReplace(targetDir, "'", "''")
+        terminalPid := 0
+        Run("powershell.exe -NoExit -Command `"Set-Location -LiteralPath ''" . escapedDir . "''`"", , , &terminalPid)
+        activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
+        return true
+    } catch {
+    }
+
+    showMsg("Terminal launch failed", 1500)
+    return false
+}
+
+getTerminalWindowMap() {
+    windows := Map()
+
+    for hwnd in WinGetList("ahk_exe WindowsTerminal.exe")
+        windows[String(hwnd)] := true
+
+    for hwnd in WinGetList("ahk_exe powershell.exe")
+        windows[String(hwnd)] := true
+
+    for hwnd in WinGetList("ahk_class ConsoleWindowClass")
+        windows[String(hwnd)] := true
+
+    return windows
+}
+
+activateLaunchedTerminalWindow(terminalPid, existingWindows) {
+    Loop 20 {
+        Sleep(100)
+
+        if (terminalPid) {
+            hwnd := WinExist("ahk_pid " . terminalPid)
+            if (hwnd) {
+                try WinActivate("ahk_id " . hwnd)
+                return true
+            }
+        }
+
+        currentWindows := getTerminalWindowMap()
+        for hwndText, _ in currentWindows {
+            if (existingWindows.Has(hwndText))
+                continue
+
+            hwnd := Integer(hwndText)
+            try WinActivate("ahk_id " . hwnd)
+            return true
+        }
+    }
+
+    return false
+}
