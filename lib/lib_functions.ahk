@@ -603,12 +603,23 @@ normalizeTcPath(pathText) {
     if (pathText == "")
         return ""
 
+    candidate := pathText
+    pathMatch := ""
+    if (RegExMatch(pathText, "i)((?:[a-z]:\\|\\\\)[^`r`n]+)", &pathMatch))
+        candidate := Trim(pathMatch[1])
+
+    ; Total Commander may show masks like \*.*, \*.ext or other wildcard filters.
+    ; Strip the final wildcard segment and keep the directory part only.
+    candidate := RegExReplace(candidate, "[\\/][^\\/]*[\*\?][^\\/]*$")
+
+    if (DirExist(candidate))
+        return candidate
+
     if (DirExist(pathText))
         return pathText
 
-    pathMatch := ""
-    if (RegExMatch(pathText, "i)((?:[a-z]:\\|\\\\)[^`r`n]*?)(?=[\\/]\*\.\*$)", &pathMatch))
-        return pathToDirectory(pathMatch[1])
+    if (RegExMatch(candidate, "i)^(?:[a-z]:\\|\\\\)"))
+        return pathToDirectory(candidate)
 
     return ""
 }
