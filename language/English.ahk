@@ -96,6 +96,13 @@ loadScript=myScript1.js,myScript2.js, myScript3.js , myScript4.js
 ; You can use Capslock + LAlt + mouse wheel up / down to quickly set this value.
 mouseSpeed=3
 
+; Which terminal to use when double-tapping CapsLock to open the current directory
+; Optional values:
+; - terminal (default)  Use Windows Terminal, falling back to PowerShell if unavailable
+; - pwsh                Use PowerShell / pwsh
+; - cmd                 Use Command Prompt
+terminalProgram=terminal
+
 ; Whether to allow independent clipboard, 1 is yes (default), 0 is no
 allowClipboard=1
 

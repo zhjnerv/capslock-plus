@@ -89,6 +89,13 @@
         ;按下 Capslock+LAlt 键时，临时改变鼠标速度，范围是1~20。不设置的话默认3
         ;可以用 Capslock+LAlt+鼠标滚轮上 / 下快速设置这个值
         mouseSpeed=3
+
+        ;双击 CapsLock 打开目录时使用哪种命令行
+        ;可选值：
+        ;- terminal（默认）  使用 Windows Terminal，不可用时回退到 PowerShell
+        ;- pwsh              使用 PowerShell / pwsh
+        ;- cmd               使用命令提示符
+        terminalProgram=terminal
         
         ;是否允许独立剪贴板功能，1为是（默认），0为否
         allowClipboard=1

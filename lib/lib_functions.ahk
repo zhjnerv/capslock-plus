@@ -668,6 +668,52 @@ openTerminalAtActiveDirectory() {
         return false
     }
 
+    terminalProgram := getConfiguredTerminalProgram()
+
+    if (terminalProgram = "cmd") {
+        if (launchCmdAtDirectory(targetDir))
+            return true
+    }
+    else if (terminalProgram = "pwsh") {
+        if (launchPwshAtDirectory(targetDir))
+            return true
+    }
+    else {
+        if (launchWindowsTerminalAtDirectory(targetDir))
+            return true
+        if (launchPwshAtDirectory(targetDir))
+            return true
+    }
+
+    showMsg("Terminal launch failed", 1500)
+    return false
+}
+
+getConfiguredTerminalProgram() {
+    global CLSets
+
+    terminalProgram := "terminal"
+    try {
+        if (CLSets.Has("Global") && CLSets["Global"].Has("terminalProgram"))
+            terminalProgram := Trim(CLSets["Global"]["terminalProgram"])
+    }
+
+    if (terminalProgram = "")
+        return "terminal"
+
+    switch StrLower(terminalProgram) {
+        case "terminal", "wt", "windows_terminal", "windowsterminal":
+            return "terminal"
+        case "pwsh", "powershell":
+            return "pwsh"
+        case "cmd", "cmd.exe":
+            return "cmd"
+        default:
+            return "terminal"
+    }
+}
+
+launchWindowsTerminalAtDirectory(targetDir) {
     existingTerminalWindows := getTerminalWindowMap()
 
     try {
@@ -676,19 +722,43 @@ openTerminalAtActiveDirectory() {
         activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
         return true
     } catch {
+        return false
     }
+}
+
+launchPwshAtDirectory(targetDir) {
+    existingTerminalWindows := getTerminalWindowMap()
+    escapedDir := StrReplace(targetDir, "'", "''")
 
     try {
-        escapedDir := StrReplace(targetDir, "'", "''")
         terminalPid := 0
-        Run("powershell.exe -NoExit -Command `"Set-Location -LiteralPath ''" . escapedDir . "''`"", , , &terminalPid)
+        Run("pwsh.exe -NoExit -Command `"Set-Location -LiteralPath '" . escapedDir . "'`"", , , &terminalPid)
         activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
         return true
     } catch {
     }
 
-    showMsg("Terminal launch failed", 1500)
-    return false
+    try {
+        terminalPid := 0
+        Run("powershell.exe -NoExit -Command `"Set-Location -LiteralPath '" . escapedDir . "'`"", , , &terminalPid)
+        activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
+        return true
+    } catch {
+        return false
+    }
+}
+
+launchCmdAtDirectory(targetDir) {
+    existingTerminalWindows := getTerminalWindowMap()
+
+    try {
+        terminalPid := 0
+        Run("cmd.exe /K cd /d `"" . targetDir . "`"", , , &terminalPid)
+        activateLaunchedTerminalWindow(terminalPid, existingTerminalWindows)
+        return true
+    } catch {
+        return false
+    }
 }
 
 getTerminalWindowMap() {
@@ -697,7 +767,13 @@ getTerminalWindowMap() {
     for hwnd in WinGetList("ahk_exe WindowsTerminal.exe")
         windows[String(hwnd)] := true
 
+    for hwnd in WinGetList("ahk_exe pwsh.exe")
+        windows[String(hwnd)] := true
+
     for hwnd in WinGetList("ahk_exe powershell.exe")
+        windows[String(hwnd)] := true
+
+    for hwnd in WinGetList("ahk_exe cmd.exe")
         windows[String(hwnd)] := true
 
     for hwnd in WinGetList("ahk_class ConsoleWindowClass")

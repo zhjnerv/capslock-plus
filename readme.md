@@ -118,7 +118,7 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 - `CapsLock + F6`：切换当前窗口置顶
 - `CapsLock + F4`：进入透明度调整模式，配合滚轮增减透明度，短按可切换默认透明状态
 - `CapsLock + 1..0` / `CapsLock + LAlt + 1..0`：窗口绑定与快速激活
-- 连按两下 `CapsLock`：在当前资源管理器、桌面或 Total Commander 当前面板目录打开终端并切到前台，优先使用 Windows Terminal，不可用时回退到 PowerShell
+- 连按两下 `CapsLock`：在当前资源管理器、桌面或 Total Commander 当前面板目录打开终端并切到前台；打开程序可通过 `[Global]` 中的 `terminalProgram` 配置为 `terminal`、`pwsh` 或 `cmd`
 
 相关实现分别在 [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk)、[lib/lib_winTransparent.ahk](lib/lib_winTransparent.ahk) 和 [lib/lib_bindWins.ahk](lib/lib_bindWins.ahk)。
 
@@ -138,7 +138,7 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 
 | 段名 | 作用 |
 |:---|:---|
-| `[Global]` | 全局设置，例如开机自启、热键布局、脚本加载、鼠标速度、剪贴板开关 |
+| `[Global]` | 全局设置，例如开机自启、热键布局、脚本加载、鼠标速度、终端类型、剪贴板开关 |
 | `[QSearch]` | Qbar 搜索指令 |
 | `[QRun]` | Qbar 快速运行文件、程序、文件夹 |
 | `[QWeb]` | Qbar 快速打开网页 |
@@ -150,9 +150,12 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 | `[Keys]` | 热键映射 |
 
 ### 推荐的新增配置示例
-当前代码里，`AI` 和 `Obsidian` 已经可用，但示例配置文件里还没有完整列出。可以按下面方式添加。
+当前代码里，`AI` 和 `Obsidian` 已经可用，终端类型也支持通过配置覆盖。可以按下面方式添加。
 
 ```ini
+[Global]
+terminalProgram=terminal
+
 [TTranslate]
 endpoint=http://127.0.0.1:1188/translate
 
@@ -169,6 +172,12 @@ file=Inbox.md
 heading=Tasks
 tag=inbox
 ```
+
+`terminalProgram` 支持以下值：
+
+- `terminal`：优先使用 Windows Terminal，不可用时回退到 PowerShell
+- `pwsh`：使用 `pwsh`，不可用时回退到 Windows PowerShell
+- `cmd`：使用命令提示符
 
 ## 自定义热键与扩展
 建议把自定义逻辑写在 [userAHK/main.ahk](userAHK/main.ahk)。

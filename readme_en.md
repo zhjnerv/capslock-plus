@@ -118,7 +118,7 @@ In the current repository, translation works like this:
 - `CapsLock + F6`: toggle always-on-top for the active window
 - `CapsLock + F4`: enter transparency adjustment mode; use the wheel to change opacity, and short tap behavior toggles the default transparent state
 - `CapsLock + 1..0` / `CapsLock + LAlt + 1..0`: bind and activate windows
-- double-tap `CapsLock`: open a terminal in the current Explorer, Desktop, or active Total Commander panel directory and bring it to the front, preferring Windows Terminal and falling back to PowerShell
+- double-tap `CapsLock`: open a terminal in the current Explorer, Desktop, or active Total Commander panel directory and bring it to the front; the launched program can be configured through `[Global].terminalProgram` as `terminal`, `pwsh`, or `cmd`
 
 Relevant implementations are in [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk), [lib/lib_winTransparent.ahk](lib/lib_winTransparent.ahk), and [lib/lib_bindWins.ahk](lib/lib_bindWins.ahk).
 
@@ -138,7 +138,7 @@ The current code recognizes these main sections:
 
 | Section | Purpose |
 |:---|:---|
-| `[Global]` | Global options such as autostart, hotkey scheme, script loading, mouse speed, and clipboard toggle |
+| `[Global]` | Global options such as autostart, hotkey scheme, script loading, mouse speed, terminal type, and clipboard toggle |
 | `[QSearch]` | Qbar search commands |
 | `[QRun]` | Qbar entries for files, folders, and programs |
 | `[QWeb]` | Qbar web shortcuts |
@@ -150,9 +150,12 @@ The current code recognizes these main sections:
 | `[Keys]` | Hotkey mappings |
 
 ### Recommended Additional Config Example
-The current code already supports `AI` and `Obsidian`, but the sample settings file does not document those sections fully yet. You can add them like this:
+The current code already supports `AI` and `Obsidian`, and the terminal choice can also be overridden through config. You can add them like this:
 
 ```ini
+[Global]
+terminalProgram=terminal
+
 [TTranslate]
 endpoint=http://127.0.0.1:1188/translate
 
@@ -169,6 +172,12 @@ file=Inbox.md
 heading=Tasks
 tag=inbox
 ```
+
+`terminalProgram` supports:
+
+- `terminal`: prefer Windows Terminal and fall back to PowerShell if unavailable
+- `pwsh`: use `pwsh`, falling back to Windows PowerShell if needed
+- `cmd`: use Command Prompt
 
 ## Custom Hotkeys and Extensions
 The recommended place for custom logic is [userAHK/main.ahk](userAHK/main.ahk).
