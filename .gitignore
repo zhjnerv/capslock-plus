@@ -20,6 +20,19 @@ youdaoApiKey.ahk
 gain.md
 prompt.txt
 
+# AI workspace / agent files
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CODEX.md
+.aider*
+.cursor/
+.windsurf/
+.roo/
+.claude/
+.codex/
+.mcp.json
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
