@@ -8,6 +8,7 @@ global QLV := ""
 global QLV_Hwnd := ""
 global needInitQ := 1
 global iconsArray0 := {}
+global QBgTextHwnd := ""
 
 global starMenuObj := Map()
 global ImageList0 := ""
@@ -44,7 +45,7 @@ CLq() {
             editH := fixDpi(50)
             compactH := margin*2 + editH
             
-            QGui.Show("h" . compactH . " Center")
+            QGui.Show("h" . compactH) ; Removed Center
         }
     }
 
@@ -52,7 +53,7 @@ CLq() {
         if (WinExist("ahk_id " . QGuiHwnd))
             QGui.Show() ; Just activate if exists
         else
-            QGui.Show("Center") ; Show logic
+            QGui.Show() ; Removed Center
             
         QEdit.Focus()
         SendMessage(0xB1, 0, 0, QEdit.Hwnd) ; Set caret to start (EM_SETSEL 0,0)
@@ -62,12 +63,11 @@ CLq() {
 }
 
 initQGui() {
-    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, CLSets, LVlistsType
+    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, CLSets, LVlistsType, QBgTextHwnd
 
     if (QGui)
         try QGui.Destroy()
 
-    ; Dimensions (Modern & Clean)
     ; Dimensions (Modern & Clean)
     global guiW, editH, listH, margin
     guiW := fixDpi(650)
@@ -93,7 +93,8 @@ initQGui() {
     ; 1. background container (Simulated by Text control)
     ; This provides the "Box" look with the specific color
     QGui.SetFont("s16", fontName)
-    QGui.Add("Text", "x" . margin . " y" . margin . " w" . (guiW - 2*margin) . " h" . editH . " Background2D2D2D")
+    QBgText := QGui.Add("Text", "x" . margin . " y" . margin . " w" . (guiW - 2*margin) . " h" . editH . " Background2D2D2D")
+    QBgTextHwnd := QBgText.Hwnd
     
     ; 2. Actual Edit Input (Centered inside the background)
     ; Calculate vertical center: (50 - 30) / 2 = 10 padding top
@@ -114,7 +115,7 @@ initQGui() {
     LV_show_Hwnd := QLV_Hwnd
     
     ; Activate Mica transparency
-    WinSetTransColor("010203", QGuiHwnd)
+    ; WinSetTransColor("010203", QGuiHwnd) ; Disabled to make margins clickable
 
     ; Remove borders via extended styling if needed, or rely on Background color blending.
     ; LVS_EX_DOUBLEBUFFER (0x10000) for smoother drawing? 
@@ -147,6 +148,9 @@ initQGui() {
     QGui.Add("Button", "x0 y0 w0 h0 Default Hidden").OnEvent("Click", QBar_Enter)
 
     QGui.OnEvent("Close", QGuiClose)
+
+    ; Allow dragging window by clicking background
+    OnMessage(0x0084, QBar_WM_NCHITTEST)
     
     ; Initial Show (calculated compact height)
     compactH := margin*2 + editH
@@ -497,6 +501,16 @@ QGuiClose(*) {
 listViewIconGet(path) {
     ; Placeholder for extracting icon index
     return 1
+}
+
+QBar_WM_NCHITTEST(wParam, lParam, msg, hwnd) {
+    global QGuiHwnd, editHwnd, QLV_Hwnd
+    if (hwnd == QGuiHwnd) {
+        targetHwnd := DllCall("User32.dll\WindowFromPoint", "int64", lParam, "ptr")
+        if (targetHwnd == editHwnd || targetHwnd == QLV_Hwnd)
+            return
+        return 2 ; HTCAPTION
+    }
 }
 
 
