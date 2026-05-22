@@ -71,17 +71,10 @@ ydTranslate(ss)
             if (HasProp(transGui, "Opt")) ; Check if object has method/prop to avoid crash if something is weird
                 transGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound")
 
-            ; Check helper existence
-            try {
-                applyModernStyle(transGuiHwnd)
-            } catch {
-                ; Ignore missing helper
-            }
-            
-            transGui.BackColor := "010203"
+            CLTheme_ApplyWindow(transGui, transGuiHwnd)
 
-            fontName := "Segoe UI Variable Text"
-            transGui.SetFont("s11 cEEEEEE", fontName)
+            fontName := CLTheme_Font("mono")
+            transGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
             
             transGui.OnEvent("Escape", (*) => transGui.Hide())
             transGui.OnEvent("Close", (*) => transGui.Hide())
@@ -90,7 +83,7 @@ ydTranslate(ss)
             OnMessage(0x0006, TransGui_WM_ACTIVATE)
 
             ; Hidden default button for Enter to submit
-            btn := transGui.Add("Button", "x-100 y-100 Default", "OK")
+            btn := transGui.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK")
             btn.OnEvent("Click", TransGuiSubmit)
 
             ; Handle Dpi
@@ -102,16 +95,20 @@ ydTranslate(ss)
                 innerW := fixDpi(500)
                 innerH := fixDpi(400)
             }
+            headerH := CLTheme_Dpi(20)
+            headerGap := CLTheme_Dpi(8)
+            fieldY := margin + headerH + headerGap
 
-            ; Background for Edit
-            transGui.Add("Text", "x" . margin . " y" . margin . " w" . innerW . " h" . innerH . " Background2D2D2D")
+            CLTheme_AddRainHeader(transGui, margin, margin, innerW, "TRANSLATION STREAM")
+            CLTheme_AddPanel(transGui, margin, fieldY, innerW, innerH, "panel")
             
-            ; Edit Control
-            transEdit := transGui.Add("Edit", "x" . (margin+5) . " y" . (margin+5) . " w" . (innerW-10) . " h" . (innerH-10) . " vTransEdit -WantReturn -E0x200 cEEEEEE Background2D2D2D", MsgBoxStr)
+            ; 保留原生 Edit，确保长译文滚动、选择和复制仍按系统控件工作。
+            transGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
+            transEdit := transGui.Add("Edit", "x" . (margin+5) . " y" . (fieldY+5) . " w" . (innerW-10) . " h" . (innerH-10) . " " . CLTheme_EditOptions("vTransEdit -WantReturn"), MsgBoxStr)
             transEditHwnd := transEdit.Hwnd
+            CLTheme_ApplyNativeControlTheme(transEdit)
 
-            transGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin))
-            try WinSetTransColor("010203", transGuiHwnd)
+            transGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin + headerH + headerGap))
             try ControlFocus(transEditHwnd)
         }
 
@@ -121,7 +118,7 @@ ydTranslate(ss)
             SetTimer(DeepLApi, -1)
         }
     } catch Error as e {
-        MsgBox("Error in ydTranslate: " . e.Message . "`nLine: " . e.Line . "`nFile: " . e.File)
+        alert("Error in ydTranslate: " . e.Message . "`nLine: " . e.Line . "`nFile: " . e.File)
     }
 }
 

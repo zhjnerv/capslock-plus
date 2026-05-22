@@ -4,7 +4,7 @@
 global LoadingGui := ""
 global LoadingText := ""
 global charIndex := 1
-global LoadingChar := ["----------", "-=--------", "--=-------", "---=------", "----=-----", "-----=----", "------=---", "-------=--", "--------=-", "---------="]
+global LoadingChar := ["010010", "101101", "001011", "111001", "000111", "110100", "011010", "100101", "SYSTEM", "READY_"]
 
 showLoading() {
     global LoadingGui, LoadingText, LoadingChar, charIndex
@@ -13,13 +13,13 @@ showLoading() {
         try LoadingGui.Destroy()
         
     LoadingGui := Gui("-Caption +AlwaysOnTop +Owner", "CapsLock+ Loading")
-    LoadingGui.BackColor := "FFFFFF"
-    LoadingGui.SetFont("s12 c555555", "Consolas")
+    CLTheme_ApplyWindow(LoadingGui, LoadingGui.Hwnd, false)
+    LoadingGui.SetFont(CLTheme_FontOptions(12, "accent"), CLTheme_Font("mono"))
     
-    LoadingText := LoadingGui.Add("Text", "h20 w100 Center", LoadingChar[1])
+    LoadingText := LoadingGui.Add("Text", "h24 w150 Center 0x200 Background" . CLTheme_Color("surface"), LoadingChar[1])
     
     LoadingGui.Show("Center NA")
-    WinSetTransparent(230, LoadingGui)
+    WinSetTransparent(235, LoadingGui)
     
     charIndex := 1
     SetTimer(changeLoadingChar, 250)

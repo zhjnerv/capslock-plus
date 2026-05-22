@@ -43,7 +43,9 @@ CLq() {
             ; Force specific height for compact look
             margin := fixDpi(15)
             editH := fixDpi(50)
-            compactH := margin*2 + editH
+            headerH := fixDpi(20)
+            headerGap := fixDpi(8)
+            compactH := margin*2 + headerH + headerGap + editH
             
             QGui.Show("h" . compactH) ; Removed Center
         }
@@ -68,51 +70,51 @@ initQGui() {
     if (QGui)
         try QGui.Destroy()
 
-    ; Dimensions (Modern & Clean)
+    ; Matrix 主题尺寸：顶部字幕雨条独立占位，避免压住输入框。
     global guiW, editH, listH, margin
     guiW := fixDpi(650)
     editH := fixDpi(50)
     listH := fixDpi(350)
     margin := fixDpi(15)
+    headerH := fixDpi(20)
+    headerGap := fixDpi(8)
+    inputY := margin + headerH + headerGap
+    listGap := fixDpi(12)
     
     QGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "Qbar")
     QGuiHwnd := QGui.Hwnd
     
-    ; Apply Win11 Styles (Rounded Corners & Mica & Dark Mode)
-    applyModernStyle(QGuiHwnd)
-
-    QGui.BackColor := "010203" ; Chroma Key for Mica (Made transparent below)
+    CLTheme_ApplyWindow(QGui, QGuiHwnd)
     
     global GuiHwnd, LV_show_Hwnd, editHwnd
     GuiHwnd := QGuiHwnd
 
-    ; Modern font selection
-    fontName := "Segoe UI Variable Text" ; Win11 Standard
+    fontName := CLTheme_Font("mono")
     
-    ; --- Search Bar Composition ---
-    ; 1. background container (Simulated by Text control)
-    ; This provides the "Box" look with the specific color
-    QGui.SetFont("s16", fontName)
-    QBgText := QGui.Add("Text", "x" . margin . " y" . margin . " w" . (guiW - 2*margin) . " h" . editH . " Background2D2D2D")
+    CLTheme_AddRainHeader(QGui, margin, margin, guiW - 2*margin, "QBAR STREAM")
+
+    ; 输入框外壳负责形成黑绿舱体，也作为可拖动背景区域的一部分。
+    QGui.SetFont(CLTheme_FontOptions(16, "accent"), fontName)
+    QBgText := CLTheme_AddPanel(QGui, margin, inputY, guiW - 2*margin, editH, "panel")
     QBgTextHwnd := QBgText.Hwnd
     
-    ; 2. Actual Edit Input (Centered inside the background)
-    ; Calculate vertical center: (50 - 30) / 2 = 10 padding top
+    ; 实际输入框居中放置，保持 IME 和 Enter 行为使用原生 Edit。
     innerEditH := fixDpi(30)
     editPadY := (editH - innerEditH) / 2
     editPadX := fixDpi(10)
     
-    QGui.SetFont("s16 cWhite", fontName)
-    QEdit := QGui.Add("Edit", "x" . (margin + editPadX) . " y" . (margin + editPadY) . " w" . (guiW - 2*margin - 2*editPadX) . " h" . innerEditH . " -Multi -E0x200 Background2D2D2D cWhite vInputStr")
+    QGui.SetFont(CLTheme_FontOptions(16, "accent"), fontName)
+    QEdit := QGui.Add("Edit", "x" . (margin + editPadX) . " y" . (inputY + editPadY) . " w" . (guiW - 2*margin - 2*editPadX) . " h" . innerEditH . " " . CLTheme_EditOptions("-Multi") . " vInputStr")
     QEdit.OnEvent("Change", doWhenChanged)
     editHwnd := QEdit.Hwnd
+    CLTheme_ApplyNativeControlTheme(QEdit)
 
-    ; ListView: Distinct background
-    QGui.SetFont("s11 cE0E0E0", fontName)
-    ; Increased gap between edit and list
-    QLV := QGui.Add("ListView", "x" . margin . " y" . (margin + editH + 12) . " w" . (guiW - 2*margin) . " h" . listH . " +Count100 +NoSortHdr -Hdr -Multi Background2D2D2D cWhite", ["Type", "FileName", "ForSort"])
+    ; 原生 ListView 负责结果交互，主题只控制可用的背景和文字颜色。
+    QGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
+    QLV := QGui.Add("ListView", "x" . margin . " y" . (inputY + editH + listGap) . " w" . (guiW - 2*margin) . " h" . listH . " " . CLTheme_ListOptions("+Count100 +NoSortHdr -Hdr -Multi"), ["Type", "FileName", "ForSort"])
     QLV_Hwnd := QLV.Hwnd
     LV_show_Hwnd := QLV_Hwnd
+    CLTheme_ApplyNativeControlTheme(QLV)
     
     ; Activate Mica transparency
     ; WinSetTransColor("010203", QGuiHwnd) ; Disabled to make margins clickable
@@ -153,7 +155,7 @@ initQGui() {
     OnMessage(0x0084, QBar_WM_NCHITTEST)
     
     ; Initial Show (calculated compact height)
-    compactH := margin*2 + editH
+    compactH := margin*2 + headerH + headerGap + editH
     QGui.Show("Hide w" . guiW . " h" . compactH)
 }
 
@@ -238,7 +240,7 @@ populateListView() {
 }
 
 doWhenChanged(*) {
-    global doNothingWhenChanged, QEdit, QLV, CLSets, starMenuObj
+    global doNothingWhenChanged, QGui, QEdit, QLV, CLSets, starMenuObj
     if (doNothingWhenChanged)
         return
         
@@ -246,9 +248,12 @@ doWhenChanged(*) {
     
     margin := fixDpi(15)
     editH := fixDpi(50)
+    headerH := fixDpi(20)
+    headerGap := fixDpi(8)
+    listGap := fixDpi(12)
     maxListH := fixDpi(350)
     guiW := fixDpi(650)
-    compactH := margin*2 + editH
+    compactH := margin*2 + headerH + headerGap + editH
     
     if (searchText == "") {
         ; Search cleared -> Switch to Compact Mode
@@ -327,7 +332,7 @@ doWhenChanged(*) {
         QLV.Visible := true
         
         ; Resize Window
-        fullH := margin + editH + 12 + finalListH + margin
+        fullH := margin + headerH + headerGap + editH + listGap + finalListH + margin
         QGui.Show("h" . fullH . " NoActivate")
         
         ; Select first item
@@ -495,6 +500,7 @@ QBar_Close(*) {
 }
 
 QGuiClose(*) {
+    global QGui
     QGui.Hide()
 }
 

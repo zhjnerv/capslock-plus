@@ -4,6 +4,7 @@
 global CalcGui := ""
 global CalcEdit := ""
 global CalcGuiHwnd := ""
+global CalcHeader := ""
 
 keyFunc_mathBoard() {
     global CalcGui, CalcEdit, CalcGuiHwnd
@@ -32,13 +33,19 @@ keyFunc_mathBoard() {
 }
 
 createMathBoard(initialValue) {
-    global CalcGui, CalcEdit, CalcGuiHwnd
+    global CalcGui, CalcEdit, CalcGuiHwnd, CalcHeader
 
     CalcGui := Gui("+AlwaysOnTop -Border +Caption +Resize +SysMenu -ToolWindow", "Math Board")
     CalcGuiHwnd := CalcGui.Hwnd
 
-    CalcGui.SetFont("s12", "consolas")
-    CalcEdit := CalcGui.Add("Edit", "x0 y0 w600 h400 -Wrap", initialValue)
+    CLTheme_ApplyWindow(CalcGui, CalcGuiHwnd)
+    headerH := CLTheme_Dpi(22)
+    CalcGui.SetFont(CLTheme_FontOptions(8, "muted"), CLTheme_Font("mono"))
+    CalcHeader := CLTheme_AddRainHeader(CalcGui, 0, 0, 600, "MATH BOARD")
+
+    CalcGui.SetFont(CLTheme_FontOptions(12, "accent"), CLTheme_Font("mono"))
+    CalcEdit := CalcGui.Add("Edit", "x0 y" . headerH . " w600 h378 " . CLTheme_EditOptions("-Wrap"), initialValue)
+    CLTheme_ApplyNativeControlTheme(CalcEdit)
 
     CalcGui.OnEvent("Size", mathBoard_Size)
     CalcGui.OnEvent("Close", (*) => CalcGui.Hide())
@@ -99,8 +106,11 @@ createMathBoard(initialValue) {
 }
 
 mathBoard_Size(thisGui, minMax, width, height) {
-    global CalcEdit
-    CalcEdit.Move(,, width, height)
+    global CalcEdit, CalcHeader
+    headerH := CLTheme_Dpi(22)
+    if (CalcHeader)
+        CalcHeader.Move(,, width, headerH)
+    CalcEdit.Move(, headerH, width, Max(1, height - headerH))
 }
 
 mathBoard_Enter(*) {

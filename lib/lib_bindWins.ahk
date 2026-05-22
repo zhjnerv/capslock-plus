@@ -427,5 +427,5 @@ doGetWinInfo() {
 }
 
 RemoveToolTip() {
-    ToolTip()
+    CLTheme_HideToast()
 }

@@ -181,13 +181,11 @@ setSettings(sec,key,val)
 
 showMsg(msg, t:=2000)
 {
-    ToolTip(msg)
-    t := -t
-    SetTimer(clearToolTip, t)
+    CLTheme_ShowToast(msg, t)
 }
 
 clearToolTip() {
-    ToolTip()
+    CLTheme_HideToast()
 }
 
 extractSetStr(str, &runStr:="", &ifAdmin:=false, &param:="")
@@ -253,7 +251,7 @@ extractSetStr(str, &runStr:="", &ifAdmin:=false, &param:="")
 
 alert(str)
 {
-    MsgBox(str)
+    CLTheme_ShowMessage(str)
 }
 
 set2Run(str)
@@ -440,7 +438,7 @@ Explorer_GetSelection() {
     processName := ""
     try {
         processName := WinGetProcessName(hwnd)
-        class := WinGetClass(hwnd)
+        windowClass := WinGetClass(hwnd)
     } catch {
         return ""
     }
@@ -449,13 +447,13 @@ Explorer_GetSelection() {
         return ""
         
     res := ""
-    if (class ~= "Progman|WorkerW") {
+    if (windowClass ~= "Progman|WorkerW") {
         ; Desktop handled via ControlGet on SysListView321? 
         ; V2 lacks direct ControlGet List command. 
         ; Attempting default Clipboard fallback or skipping Desktop specific logic for now 
         ; unless using raw SendMessage.
         return "" 
-    } else if (class ~= "(Cabinet|Explore)WClass") {
+    } else if (windowClass ~= "(Cabinet|Explore)WClass") {
         try {
             for window in ComObject("Shell.Application").Windows {
                 try {
@@ -479,10 +477,10 @@ getActiveDirectoryPath() {
         return ""
 
     processName := ""
-    class := ""
+    windowClass := ""
     try {
         processName := WinGetProcessName(hwnd)
-        class := WinGetClass(hwnd)
+        windowClass := WinGetClass(hwnd)
     } catch {
         return ""
     }
@@ -518,7 +516,7 @@ getActiveDirectoryPath() {
         }
     }
 
-    if (class ~= "Progman|WorkerW")
+    if (windowClass ~= "Progman|WorkerW")
         return A_Desktop
 
     return ""
@@ -704,7 +702,7 @@ getConfiguredTerminalProgram() {
     global CLSets
 
     terminalProgram := "terminal"
-    try {
+    if (IsSet(CLSets)) {
         if (CLSets.Has("Global") && CLSets["Global"].Has("terminalProgram"))
             terminalProgram := Trim(CLSets["Global"]["terminalProgram"])
     }

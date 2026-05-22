@@ -11,7 +11,7 @@ jsEval_init() {
     try {
         jsEvalObj := ComObject("HTMLfile")
     } catch Error as e {
-        MsgBox("AHK Init Error: " . e.Message)
+        alert("AHK Init Error: " . e.Message)
         jsEvalObj := ""
         return
     }
@@ -47,7 +47,7 @@ jsEval_init() {
     try {
         jsEvalObj.write(buildInScript)
     } catch Error as e {
-        MsgBox("JS Write Error: " . e.Message)
+        alert("JS Write Error: " . e.Message)
     }
 }
 
@@ -66,13 +66,13 @@ eval(exp)
         result := jsEvalObj.body.innerText
         
         if (SubStr(result, 1, 6) == "JSERR:") {
-             MsgBox("JS Error for '" . exp . "': " . SubStr(result, 7))
+             alert("JS Error for '" . exp . "': " . SubStr(result, 7))
              return "ERROR"
         }
         
         return result
     } catch Error as e {
-        MsgBox("AHK Eval Failed: " . e.Message)
+        alert("AHK Eval Failed: " . e.Message)
         return "ERROR"
     }
 }

@@ -72,7 +72,7 @@ keyFunc_OpenAI(){
         if !ClipWait(2)
         {
              ; Timeout
-             MsgBox("Failed to copy text.", "Error", 16)
+             alert("Failed to copy text.")
              try A_Clipboard := ClipboardOld
              Return
         }
@@ -80,7 +80,7 @@ keyFunc_OpenAI(){
         selText := A_Clipboard
         
         if (selText = "") {
-            MsgBox("Failed to get context.", "Error", 16)
+            alert("Failed to get context.")
             try A_Clipboard := ClipboardOld
             Return
         }

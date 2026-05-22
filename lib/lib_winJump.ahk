@@ -138,10 +138,10 @@ winJumpCover(x, y, w, h) {
     global winCoverGui
     if (!winCoverGui) {
         winCoverGui := Gui("-Caption -Disabled +ToolWindow +AlwaysOnTop", "winCover")
-        winCoverGui.BackColor := "000000"
+        winCoverGui.BackColor := CLTheme_Color("accent")
     }
     winCoverGui.Show("x" . x . " y" . y . " w" . w . " h" . h . " NA")
-    WinSetTransparent(100, winCoverGui)
+    WinSetTransparent(75, winCoverGui)
 }
 
 destroyWinJumpCover() {

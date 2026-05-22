@@ -1,3 +1,3 @@
 keyFunc_example2(){
-  MsgBox("example2")
+  showMsg("example2", 1000)
 }

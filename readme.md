@@ -242,6 +242,7 @@ caps_q=keyFunc_listary()
 | [lib/lib_init.ahk](lib/lib_init.ahk) | 启动初始化流程，串联设置、语言、Qbar、翻译、鼠标速度等模块 |
 | [lib/lib_settings.ahk](lib/lib_settings.ahk) | 读取、监控和写回 `CapsLock+settings.ini` |
 | [lib/lib_functions.ahk](lib/lib_functions.ahk) | 通用工具函数，如选中文本获取、URL 编码、提示显示等 |
+| [lib/lib_theme.ahk](lib/lib_theme.ahk) | Matrix 黑绿主题样式，集中管理自建 GUI 的颜色、字体和装饰条 |
 | [lib/lib_keysSet.ahk](lib/lib_keysSet.ahk) | 默认热键布局定义 |
 | [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk) | 绝大多数 `keyFunc_*` 功能实现 |
 | [lib/lib_clQ.ahk](lib/lib_clQ.ahk) | Qbar 搜索与快速运行模块 |

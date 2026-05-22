@@ -7,9 +7,10 @@
 global todoGuiHwnd := "", todoEditHwnd := "", initialTaskText := ""
 global TodoGuiObj := ""
 global TodoAddSource := 0
+global TodoSourceToggleCtrl := ""
 
 addObsidianTodo(text) {
-    global todoGuiHwnd, todoEditHwnd, initialTaskText, TodoGuiObj, TodoAddSource
+    global todoGuiHwnd, todoEditHwnd, initialTaskText, TodoGuiObj, TodoAddSource, TodoSourceToggleCtrl
 
     initialTaskText := text
 
@@ -24,35 +25,47 @@ addObsidianTodo(text) {
     ; 创建新窗口
     TodoGuiObj := Gui("+AlwaysOnTop -Border +Caption -Disabled -LastFound -MaximizeBox -OwnDialogs -Resize +SysMenu -Theme +ToolWindow", "添加任务到 Obsidian")
     todoGuiHwnd := TodoGuiObj.Hwnd
+    TodoAddSource := 0
+    TodoSourceToggleCtrl := ""
     
-    TodoGuiObj.SetFont("s12 w400", "Microsoft YaHei UI")
+    CLTheme_ApplyWindow(TodoGuiObj, todoGuiHwnd)
+    TodoGuiObj.SetFont(CLTheme_FontOptions(12, "text"), CLTheme_Font("ui"))
     
     ; 隐藏的OK按钮，设置为Default，响应回车
-    TodoGuiObj.Add("Button", "x-40 y-40 Default", "OK").OnEvent("Click", TodoButtonOK)
+    TodoGuiObj.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK").OnEvent("Click", TodoButtonOK)
     
-    editCtrl := TodoGuiObj.Add("Edit", "x5 y5 w490 h160 vTodoEdit -WantReturn", initialTaskText)
+    margin := fixDpi(10)
+    headerH := CLTheme_Dpi(20)
+    headerGap := CLTheme_Dpi(8)
+    editY := margin + headerH + headerGap
+    CLTheme_AddRainHeader(TodoGuiObj, margin, margin, fixDpi(480), "OBSIDIAN TASK")
+    CLTheme_AddPanel(TodoGuiObj, margin, editY, fixDpi(480), fixDpi(150), "panel")
+
+    TodoGuiObj.SetFont(CLTheme_FontOptions(11, "text"), CLTheme_Font("mono"))
+    editCtrl := TodoGuiObj.Add("Edit", "x" . (margin+5) . " y" . (editY+5) . " w" . fixDpi(470) . " h" . fixDpi(140) . " " . CLTheme_EditOptions("vTodoEdit -WantReturn"), initialTaskText)
     todoEditHwnd := editCtrl.Hwnd
+    CLTheme_ApplyNativeControlTheme(editCtrl)
     
-    TodoGuiObj.Add("Checkbox", "x10 y175 vAddSource", "添加来源 (当前窗口标题)")
+    ; 使用主题化文本开关替代原生 Checkbox，避免系统浅色控件露出。
+    TodoSourceToggleCtrl := CLTheme_AddSelectableText(TodoGuiObj, margin, editY + fixDpi(160), fixDpi(250), fixDpi(24), "添加来源 (当前窗口标题)", false, TodoToggleSource)
     
-    TodoGuiObj.BackColor := "fefefe"
     TodoGuiObj.OnEvent("Escape", TodoClose)
     TodoGuiObj.OnEvent("Close", TodoClose)
     
-    TodoGuiObj.Show("Center w500 h210")
+    TodoGuiObj.Show("Center w500 h230")
     
     try ControlFocus(todoEditHwnd)
 }
 
 ; 按下回车键时触发
 TodoButtonOK(*) {
-    global TodoGuiObj
+    global TodoGuiObj, TodoAddSource
     if (!TodoGuiObj)
         return
         
     saved := TodoGuiObj.Submit()
     finalTask := saved.TodoEdit
-    addSourceVal := saved.AddSource
+    addSourceVal := TodoAddSource
     
     TodoGuiObj.Destroy()
     
@@ -111,13 +124,21 @@ TodoButtonOK(*) {
 
     ; 执行
     try Run(uri)
-    TrayTip("任务已添加", "Obsidian", 1) ; 1=Info icon
+    showMsg("任务已添加到 Obsidian", 1500)
 } 
 
+TodoToggleSource(*) {
+    global TodoAddSource, TodoSourceToggleCtrl
+    TodoAddSource := TodoAddSource ? 0 : 1
+    if (TodoSourceToggleCtrl)
+        CLTheme_SetSelectableText(TodoSourceToggleCtrl, "添加来源 (当前窗口标题)", TodoAddSource)
+}
+
 TodoClose(*) {
-    global TodoGuiObj
+    global TodoGuiObj, TodoSourceToggleCtrl
     if (TodoGuiObj)
         TodoGuiObj.Destroy()
+    TodoSourceToggleCtrl := ""
 }
 
 ; UrlEncode is already defined in lib/lib_functions.ahk

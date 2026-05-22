@@ -241,6 +241,7 @@ caps_q=keyFunc_listary()
 | [lib/lib_init.ahk](lib/lib_init.ahk) | Startup initialization flow that wires settings, language, Qbar, translation, mouse speed, and more |
 | [lib/lib_settings.ahk](lib/lib_settings.ahk) | Reads, watches, and writes `CapsLock+settings.ini` |
 | [lib/lib_functions.ahk](lib/lib_functions.ahk) | Shared utility functions such as selected text capture, URL encoding, and message display |
+| [lib/lib_theme.ahk](lib/lib_theme.ahk) | Matrix black-green theme helpers for colors, fonts, and decorative stream headers |
 | [lib/lib_keysSet.ahk](lib/lib_keysSet.ahk) | Default hotkey layout definitions |
 | [lib/lib_keysFunction.ahk](lib/lib_keysFunction.ahk) | Most `keyFunc_*` implementations |
 | [lib/lib_clQ.ahk](lib/lib_clQ.ahk) | Qbar search and quick-launch module |

@@ -10,6 +10,7 @@ global openaiGuiHwnd := "", openAI_transEditHwnd := "", openAI_transEdit := ""
 global system_prompt := "", user_content := "", promptSelectionDone := 0
 global selectedPromptFileName := "", selectedPromptIndex := 1
 global OpenAIgs := "" ; GUI Object for Settings/Prompt
+global OpenAIPromptControls := [], OpenAIPromptLabels := Map()
 
 setOpenaiActive(*) {
     global openaiGuiHwnd
@@ -41,34 +42,41 @@ OpenAI_Cap(oo)
 ;单独的显示prompt选择框的函数
 ShowPromptSelection()
 {
-    global OpenAIgs, promptSelectionDone, selectedPromptFileName, selectedPromptIndex
+    global OpenAIgs, promptSelectionDone, selectedPromptFileName, selectedPromptIndex, OpenAIPromptControls, OpenAIPromptLabels
     
     ; 显示选择对话框
     OpenAIgs := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "选择 Prompt 文件")
     gsHwnd := OpenAIgs.Hwnd
-    applyModernStyle(gsHwnd)
-    OpenAIgs.BackColor := "010203"
+    CLTheme_ApplyWindow(OpenAIgs, gsHwnd)
+    selectedPromptIndex := 1
     
-    fontName := "Segoe UI Variable Text"
-    OpenAIgs.SetFont("s11 cEEEEEE", fontName)
+    fontName := CLTheme_Font("mono")
 
     margin := fixDpi(20)
-    OpenAIgs.Add("Text", "x" . margin . " y" . margin, "请选择要使用的 Prompt 文件 (1-5):")
+    headerW := fixDpi(360)
+    CLTheme_AddRainHeader(OpenAIgs, margin, margin, headerW, "PROMPT MATRIX")
+    OpenAIgs.SetFont(CLTheme_FontOptions(11, "textStrong"), fontName)
+    OpenAIgs.Add("Text", "x" . margin . " y+10 Background" . CLTheme_Color("window"), "请选择要使用的 Prompt 文件 (1-5):")
     
-    ; Radio buttons
-    OpenAIgs.SetFont("s10 cEEEEEE")
-    OpenAIgs.Add("Radio", "vSelectedPrompt Checked x" . margin . " y+10", "1. 默认 (prompt.txt)").OnEvent("Click", RadioPrompt)
-    OpenAIgs.Add("Radio", "x" . margin . " y+5", "2. 改写 (rewrite_prompt.txt)").OnEvent("Click", RadioPrompt)
-    OpenAIgs.Add("Radio", "x" . margin . " y+5", "3. 翻译 (translate_prompt.txt)").OnEvent("Click", RadioPrompt)
-    OpenAIgs.Add("Radio", "x" . margin . " y+5", "4. 总结 (summarize_prompt.txt)").OnEvent("Click", RadioPrompt)
-    OpenAIgs.Add("Radio", "x" . margin . " y+5", "5. 润色 (polish_prompt.txt)").OnEvent("Click", RadioPrompt)
+    ; 使用主题化文本选项替代原生 Radio，避免浅色系统控件破坏 Matrix 风格。
+    OpenAIPromptControls := []
+    OpenAIPromptLabels := Map()
+    optionY := margin + fixDpi(68)
+    optionW := fixDpi(360)
+    optionH := fixDpi(24)
+    OpenAI_AddPromptOption(1, "1. 默认 (prompt.txt)", margin, optionY, optionW, optionH)
+    OpenAI_AddPromptOption(2, "2. 改写 (rewrite_prompt.txt)", margin, optionY + optionH, optionW, optionH)
+    OpenAI_AddPromptOption(3, "3. 翻译 (translate_prompt.txt)", margin, optionY + optionH*2, optionW, optionH)
+    OpenAI_AddPromptOption(4, "4. 总结 (summarize_prompt.txt)", margin, optionY + optionH*3, optionW, optionH)
+    OpenAI_AddPromptOption(5, "5. 润色 (polish_prompt.txt)", margin, optionY + optionH*4, optionW, optionH)
     
-    OpenAIgs.SetFont("s10 c000000") ; Buttons usually look better with dark text or themed
-    OpenAIgs.Add("Button", "Default x" . margin . " y+15 w80 h30", "确定").OnEvent("Click", ConfirmPromptFile)
-    OpenAIgs.Add("Button", "x+10 w80 h30", "取消").OnEvent("Click", CancelPromptFile)
+    ; 原生按钮不易完整换肤，保留隐藏默认按钮处理 Enter，用文本按钮呈现主题风格。
+    OpenAIgs.Add("Button", "x0 y0 w0 h0 Default Hidden", "确定").OnEvent("Click", ConfirmPromptFile)
+    btnY := optionY + optionH*5 + fixDpi(14)
+    CLTheme_AddTextButton(OpenAIgs, margin, btnY, fixDpi(86), fixDpi(30), "确定", ConfirmPromptFile)
+    CLTheme_AddTextButton(OpenAIgs, margin + fixDpi(96), btnY, fixDpi(86), fixDpi(30), "取消", CancelPromptFile)
     
     OpenAIgs.Show("AutoSize Center")
-    WinSetTransColor("010203", gsHwnd)
 
     ; 点击外部自动取消
     OnMessage(0x0006, OpenAI_WM_ACTIVATE)
@@ -93,7 +101,6 @@ ShowPromptSelection()
     ; 不使用 WinWaitClose，而是设置一个全局变量来标记选择状态
     promptSelectionDone := 0
     selectedPromptFileName := "prompt.txt"  ; 默认值
-    selectedPromptIndex := 1  ; 默认选择第一项
     
     ; 等待选择完成
     waitCount := 0
@@ -113,6 +120,27 @@ ShowPromptSelection()
     
     ; 重置等待计数器
     waitCount := 0
+}
+
+OpenAI_AddPromptOption(index, label, x, y, w, h) {
+    global OpenAIgs, OpenAIPromptControls, OpenAIPromptLabels, selectedPromptIndex
+    OpenAIPromptLabels[index] := label
+    OpenAIPromptControls.Push(CLTheme_AddSelectableText(OpenAIgs, x, y, w, h, label, index == selectedPromptIndex, OpenAI_PromptOption_Click.Bind(index)))
+}
+
+OpenAI_PromptOption_Click(index, *) {
+    SelectPromptOnly(index)
+}
+
+SelectPromptOnly(index) {
+    global selectedPromptIndex, OpenAIPromptControls, OpenAIPromptLabels
+    selectedPromptIndex := index
+    Loop OpenAIPromptControls.Length {
+        ctrl := OpenAIPromptControls[A_Index]
+        label := OpenAIPromptLabels.Has(A_Index) ? OpenAIPromptLabels[A_Index] : ""
+        if (label != "")
+            CLTheme_SetSelectableText(ctrl, label, A_Index == selectedPromptIndex)
+    }
 }
 
 DisablePromptHotkeys(hwnd) {
@@ -173,30 +201,33 @@ CallOpenAIAPI()
         OpenAIResGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "openai修饰")
         openaiGuiHwnd := OpenAIResGui.Hwnd
         
-        applyModernStyle(openaiGuiHwnd)
-        OpenAIResGui.BackColor := "010203"
+        CLTheme_ApplyWindow(OpenAIResGui, openaiGuiHwnd)
 
-        fontName := "Segoe UI Variable Text"
-        OpenAIResGui.SetFont("s11 cEEEEEE", fontName)
+        fontName := CLTheme_Font("mono")
+        OpenAIResGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
         
         OpenAIResGui.OnEvent("Escape", (*) => OpenAIResGui.Hide())
         OpenAIResGui.OnEvent("Close", (*) => OpenAIResGui.Hide())
         
         ; Hidden default button
-        OpenAIResGui.Add("Button", "x-100 y-100 Default", "OK").OnEvent("Click", ButtonOK_OpenAI) 
+        OpenAIResGui.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK").OnEvent("Click", ButtonOK_OpenAI) 
 
         margin := fixDpi(10)
         innerW := fixDpi(500)
         innerH := fixDpi(400)
+        headerH := CLTheme_Dpi(20)
+        headerGap := CLTheme_Dpi(8)
+        fieldY := margin + headerH + headerGap
 
-        ; Background for Edit
-        OpenAIResGui.Add("Text", "x" . margin . " y" . margin . " w" . innerW . " h" . innerH . " Background2D2D2D")
+        CLTheme_AddRainHeader(OpenAIResGui, margin, margin, innerW, "AI RESPONSE STREAM")
+        CLTheme_AddPanel(OpenAIResGui, margin, fieldY, innerW, innerH, "panel")
 
-        openAI_transEditObj := OpenAIResGui.Add("Edit", "x" . (margin+5) . " y" . (margin+5) . " w" . (innerW-10) . " h" . (innerH-10) . " vopenAI_transEdit -WantReturn -E0x200 cEEEEEE Background2D2D2D", OpenAIMsgBoxStr)
+        OpenAIResGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
+        openAI_transEditObj := OpenAIResGui.Add("Edit", "x" . (margin+5) . " y" . (fieldY+5) . " w" . (innerW-10) . " h" . (innerH-10) . " " . CLTheme_EditOptions("vopenAI_transEdit -WantReturn"), OpenAIMsgBoxStr)
         openAI_transEditHwnd := openAI_transEditObj.Hwnd
+        CLTheme_ApplyNativeControlTheme(openAI_transEditObj)
         
-        OpenAIResGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin))
-        WinSetTransColor("010203", openaiGuiHwnd)
+        OpenAIResGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin + headerH + headerGap))
         
         ; 点击外部自动隐藏
         OnMessage(0x0006, OpenAI_WM_ACTIVATE)
@@ -278,9 +309,7 @@ CallOpenAIAPI()
 ; 添加确认 prompt 文件选择的标签
 ConfirmPromptFile(*) {
     global OpenAIgs, promptSelectionDone, selectedPromptIndex, selectedPromptFileName
-    if (OpenAIgs)
-        saved := OpenAIgs.Submit() ; Hide?
-        
+
     promptSelectionDone := 1
     
     ; 根据选择的索引设置文件名
@@ -319,20 +348,6 @@ CancelPromptFileAndDisableHotkeys(*) {
     CancelPromptFile()
 }
 
-; 处理单选按钮变化
-RadioPrompt(*) {
-    ; Not really needed to auto-submit in V2 events usually pass the control
-    ; But we can store index if needed manually or just rely on submit
-    ; Let's just update index when clicked based on name?
-    ; Or easier: submit in Confirm.
-    ; But original code updated on click.
-    global OpenAIgs, selectedPromptIndex
-    if OpenAIgs {
-        saved := OpenAIgs.Submit(0)
-        selectedPromptIndex := saved.SelectedPrompt
-    }
-}
-
 ; 数字键快捷选择
 SelectPrompt1(*) {
     UpdatePromptSelection(1)
@@ -351,12 +366,7 @@ SelectPrompt5(*) {
 }
 
 UpdatePromptSelection(idx) {
-    global OpenAIgs, selectedPromptIndex
-    selectedPromptIndex := idx
-    if (OpenAIgs) {
-        ; Check the radio button
-        try ControlSetChecked(1, "Button" . idx, OpenAIgs.Hwnd) ; Buttons are usually sequentual
-    }
+    SelectPromptOnly(idx)
     ConfirmPromptFile()
 }
 

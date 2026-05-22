@@ -4,7 +4,6 @@
 ; In V2, better to call it from main script after includes.
 
 initAll() {
-    ; MsgBox("DEBUG: initAll Started")
     Suspend(true) ;挂起所有热键
     
     loadingAnimation := "1"

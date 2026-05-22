@@ -7,7 +7,7 @@ keyFunc_doNothing(){
 }
 
 keyFunc_test(){
-    MsgBox("testing", , "T1")
+    showMsg("testing", 1000)
     return
 }
 
@@ -640,7 +640,7 @@ keyFunc_getJSEvalString(){
     {
         ; result := escapeString(A_Clipboard) ; escapeString not defined?
         result := A_Clipboard
-        ib := InputBox(result, "Debug Text", "w300 h150", result)
+        ib := CLTheme_InputBox(result, "Debug Text", "w300 h150", result)
         if(ib.Result == "OK")
         {
             A_Clipboard := ib.Value
@@ -698,7 +698,8 @@ keyFunc_volumeMute(){
 }
 
 keyFunc_reload(){
-    MsgBox("Reloading...", "Reload", "T0.5")
+    showMsg("Reloading...", 500)
+    Sleep(250)
     Reload
     return
 }

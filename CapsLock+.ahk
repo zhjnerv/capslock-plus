@@ -33,6 +33,7 @@ keyset["press_caps"] := "keyFunc_toggleCapsLock"
 
 #Include "lib\JSON.ahk"
 #Include "lib\lib_functions.ahk"
+#Include "lib\lib_theme.ahk"
 #Include "lib\lib_settings.ahk"
 #Include "lib\lib_keysSet.ahk"
 #Include "lib\lib_keysFunction.ahk"
@@ -189,28 +190,21 @@ keyDispatcher(ThisHotkey) {
         
     lookupKey := prefix . cleanKey
     
-    ; DEBUG OUTPUT
-    ; ToolTip("Triggered: " . ThisHotkey . "`nLookup: " . lookupKey . "`nHasKey: " . keyset.Has(lookupKey))
-    
     if (keyset.Has(lookupKey)) {
         global clUsed
         clUsed := 1 ; Mark CapsLock as used effectively
         funcName := keyset[lookupKey]
-        ; ToolTip("Dispatcher calling: " . funcName)
         try {
              runFunc(funcName)
         } catch Error as e {
-             MsgBox("Error calling " . funcName . ": " . e.Message)
+             alert("Error calling " . funcName . ": " . e.Message)
         }
-    } else {
-        ; ToolTip("Key not found in keyset: " . lookupKey)
     }
 
 }
 
 *CapsLock::
 {
-    ; ToolTip("CapsLock Down")
     global clState, clUsed, ctrlZ
     
     clState := 1
@@ -227,7 +221,6 @@ keyDispatcher(ThisHotkey) {
         
     clState := 0
     SetTimer(changeMouseSpeed, 0)
-    ; ToolTip("CapsLock Up. Used: " . clUsed)
     
     if (clUsed == 0) 
     {
