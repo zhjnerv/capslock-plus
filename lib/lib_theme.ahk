@@ -9,6 +9,10 @@ CLTheme_Color(name) {
         "panelSoft", "071807",
         "field", "031005",
         "fieldHot", "08220D",
+        "crtSurface", "031806",
+        "crtRain", "78FF9C",
+        "crtRainDim", "2FE66A",
+        "crtTitle", "B7FF5A",
         "button", "0B5F2A",
         "buttonHover", "137A39",
         "text", "C8FFD2",
@@ -26,7 +30,44 @@ CLTheme_Color(name) {
 CLTheme_Font(role := "ui") {
     if (role = "mono")
         return "Cascadia Mono"
-    return "Microsoft YaHei UI"
+    if (role = "qbar")
+        return CLTheme_FirstAvailableFont(["Noto Sans SC", "DengXian", "Microsoft YaHei UI"])
+    return CLTheme_Font("qbar")
+}
+
+CLTheme_FirstAvailableFont(fontNames) {
+    for fontName in fontNames {
+        if (CLTheme_FontInstalled(fontName))
+            return fontName
+    }
+    return fontNames[fontNames.Length]
+}
+
+CLTheme_FontInstalled(fontName) {
+    static fontRegistryNames := Map(
+        "Noto Sans SC", ["Noto Sans SC (TrueType)", "Noto Sans CJK SC (TrueType)"],
+        "DengXian", ["DengXian (TrueType)", "DengXian Light (TrueType)"],
+        "Microsoft YaHei UI", ["Microsoft YaHei & Microsoft YaHei UI (TrueType)"]
+    )
+
+    if (!fontRegistryNames.Has(fontName))
+        return true
+
+    registryKeys := [
+        "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
+        "HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+    ]
+
+    for keyPath in registryKeys {
+        for valueName in fontRegistryNames[fontName] {
+            try {
+                if (RegRead(keyPath, valueName) != "")
+                    return true
+            }
+        }
+    }
+
+    return false
 }
 
 CLTheme_FontOptions(size := 11, colorName := "text", extra := "") {
@@ -66,36 +107,91 @@ CLTheme_ApplyNativeControlTheme(ctrlOrHwnd) {
 global CLTheme_RainHeaders := []
 global CLTheme_RainTick := 0
 
-CLTheme_RainLine(label := "CAPSLOCK+", seed := 0) {
+CLTheme_RainSegment(seed := 0, side := "left") {
     static cells := ["010010", "101101", "001011", "111001", "000111", "110100", "011010", "100101"]
-    left := ""
-    right := ""
+    segment := ""
 
     Loop 3 {
-        leftIndex := Mod(seed + A_Index - 1, cells.Length) + 1
-        rightIndex := Mod(seed + A_Index + 3, cells.Length) + 1
-        left .= cells[leftIndex] . "  "
-        right .= "  " . cells[rightIndex]
+        index := Mod(seed + A_Index + (side = "right" ? 3 : 0) - 1, cells.Length) + 1
+        if (side = "right")
+            segment .= (A_Index = 1 ? "" : "  ") . cells[index]
+        else
+            segment .= cells[index] . (A_Index = 3 ? "" : "  ")
     }
 
-    return left . label . right
+    return segment
+}
+
+class CLTheme_RainHeader {
+    __New(bgCtrl, leftCtrl, titleCtrl, rightCtrl, label, x, y, w, h) {
+        this.bgCtrl := bgCtrl
+        this.leftCtrl := leftCtrl
+        this.titleCtrl := titleCtrl
+        this.rightCtrl := rightCtrl
+        this.label := label
+        this.x := x
+        this.y := y
+        this.w := w
+        this.h := h
+        this.Layout()
+    }
+
+    Move(x?, y?, w?, h?) {
+        if IsSet(x)
+            this.x := x
+        if IsSet(y)
+            this.y := y
+        if IsSet(w)
+            this.w := w
+        if IsSet(h)
+            this.h := h
+        this.Layout()
+    }
+
+    Layout() {
+        titleW := Min(Max(CLTheme_Dpi(StrLen(this.label) * 8 + 36), CLTheme_Dpi(96)), Max(CLTheme_Dpi(90), this.w * 0.48))
+        sideW := Max(1, (this.w - titleW) / 2)
+        titleX := this.x + sideW
+        rightX := titleX + titleW
+
+        this.bgCtrl.Move(this.x, this.y, this.w, this.h)
+        this.leftCtrl.Move(this.x, this.y, sideW, this.h)
+        this.titleCtrl.Move(titleX, this.y, titleW, this.h)
+        this.rightCtrl.Move(rightX, this.y, sideW, this.h)
+    }
+
+    Update(seed) {
+        this.leftCtrl.Value := CLTheme_RainSegment(seed, "left")
+        this.rightCtrl.Value := CLTheme_RainSegment(seed + 5, "right")
+
+        ; 轻微错相闪烁，模拟老式 CRT 文字亮度波动，但标题保持稳定高亮。
+        rainColor := CLTheme_Color(Mod(seed, 4) = 0 ? "crtRain" : "crtRainDim")
+        this.leftCtrl.Opt("c" . rainColor)
+        this.rightCtrl.Opt("c" . rainColor)
+    }
 }
 
 CLTheme_AddRainHeader(guiObj, x, y, w, label := "CAPSLOCK+ MATRIX") {
     headerH := CLTheme_Dpi(20)
-    guiObj.SetFont(CLTheme_FontOptions(8, "muted"), CLTheme_Font("mono"))
-    ctrl := guiObj.Add(
-        "Text",
-        "x" . x . " y" . y . " w" . w . " h" . headerH . " Center 0x200 Background" . CLTheme_Color("surface"),
-        CLTheme_RainLine(label)
-    )
-    CLTheme_RegisterRainHeader(ctrl, label)
-    return ctrl
+    bgColor := CLTheme_Color("crtSurface")
+
+    bgCtrl := guiObj.Add("Text", "x" . x . " y" . y . " w" . w . " h" . headerH . " Background" . bgColor)
+
+    guiObj.SetFont(CLTheme_FontOptions(8, "crtRainDim"), CLTheme_Font("mono"))
+    leftCtrl := guiObj.Add("Text", "x" . x . " y" . y . " w1 h" . headerH . " Right 0x200 Background" . bgColor, CLTheme_RainSegment(0, "left"))
+    rightCtrl := guiObj.Add("Text", "x" . x . " y" . y . " w1 h" . headerH . " Left 0x200 Background" . bgColor, CLTheme_RainSegment(5, "right"))
+
+    guiObj.SetFont(CLTheme_FontOptions(8, "crtTitle"), CLTheme_Font("mono"))
+    titleCtrl := guiObj.Add("Text", "x" . x . " y" . y . " w1 h" . headerH . " Center 0x200 Background" . bgColor, label)
+
+    header := CLTheme_RainHeader(bgCtrl, leftCtrl, titleCtrl, rightCtrl, label, x, y, w, headerH)
+    CLTheme_RegisterRainHeader(header)
+    return header
 }
 
-CLTheme_RegisterRainHeader(ctrl, label) {
+CLTheme_RegisterRainHeader(header) {
     global CLTheme_RainHeaders
-    CLTheme_RainHeaders.Push({ctrl: ctrl, label: label})
+    CLTheme_RainHeaders.Push(header)
     SetTimer(CLTheme_UpdateRainHeaders, 180)
 }
 
@@ -105,9 +201,9 @@ CLTheme_UpdateRainHeaders(*) {
 
     index := CLTheme_RainHeaders.Length
     while (index >= 1) {
-        item := CLTheme_RainHeaders[index]
+        header := CLTheme_RainHeaders[index]
         try {
-            item.ctrl.Value := CLTheme_RainLine(item.label, CLTheme_RainTick + index)
+            header.Update(CLTheme_RainTick + index)
         } catch {
             CLTheme_RainHeaders.RemoveAt(index)
         }
@@ -149,7 +245,7 @@ CLTheme_SelectableLabel(label, selected := false) {
 }
 
 CLTheme_AddSelectableText(guiObj, x, y, w, h, label, selected, callback) {
-    guiObj.SetFont(CLTheme_FontOptions(10, selected ? "accent" : "text"), CLTheme_Font("mono"))
+    guiObj.SetFont(CLTheme_FontOptions(10, selected ? "accent" : "text"), CLTheme_Font("ui"))
     ctrl := guiObj.Add(
         "Text",
         "x" . x . " y" . y . " w" . w . " h" . h . " 0x200 Background" . CLTheme_Color(selected ? "fieldHot" : "panel"),
@@ -289,7 +385,7 @@ CLTheme_InputBox(prompt := "", title := "Input", options := "", defaultValue := 
     }
 
     CLTheme_AddPanel(CLTheme_InputGui, margin, bodyY, w - 2*margin, editH, "panel")
-    CLTheme_InputGui.SetFont(CLTheme_FontOptions(10, "text"), CLTheme_Font("mono"))
+    CLTheme_InputGui.SetFont(CLTheme_FontOptions(10, "text"), CLTheme_Font("ui"))
     inputEdit := CLTheme_InputGui.Add("Edit", "x" . (margin+5) . " y" . (bodyY+5) . " w" . (w - 2*margin - 10) . " h" . (editH - 10) . " " . CLTheme_EditOptions("vMatrixInput -WantReturn"), defaultValue)
     CLTheme_ApplyNativeControlTheme(inputEdit)
 

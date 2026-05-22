@@ -61,13 +61,9 @@ keyFunc_moveRight(i:=1){
 }
 
 keyFunc_moveUp(i:=1){
-    global GuiHwnd, LV_show_Hwnd, editHwnd
-    if(IsSet(GuiHwnd) && WinActive("ahk_id" . GuiHwnd))
+    if(QBar_IsActive())
     {
-        try ControlFocus(LV_show_Hwnd)
-        SendEvent("{Up " . i . "}")
-        Sleep(5)
-        try ControlFocus(editHwnd)
+        QBar_MoveSelection(-i)
     }
     else
         SendEvent("{up " . i . "}")
@@ -75,13 +71,9 @@ keyFunc_moveUp(i:=1){
 }
 
 keyFunc_moveDown(i:=1){
-    global GuiHwnd, LV_show_Hwnd, editHwnd
-    if(IsSet(GuiHwnd) && WinActive("ahk_id" . GuiHwnd))
+    if(QBar_IsActive())
     {
-        try ControlFocus(LV_show_Hwnd)
-        SendEvent("{Down " . i . "}")
-        Sleep(5)
-        try ControlFocus(editHwnd)
+        QBar_MoveSelection(i)
     }
     else
         SendEvent("{down " . i . "}")

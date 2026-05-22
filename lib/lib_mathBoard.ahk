@@ -43,7 +43,7 @@ createMathBoard(initialValue) {
     CalcGui.SetFont(CLTheme_FontOptions(8, "muted"), CLTheme_Font("mono"))
     CalcHeader := CLTheme_AddRainHeader(CalcGui, 0, 0, 600, "MATH BOARD")
 
-    CalcGui.SetFont(CLTheme_FontOptions(12, "accent"), CLTheme_Font("mono"))
+    CalcGui.SetFont(CLTheme_FontOptions(12, "accent"), CLTheme_Font("ui"))
     CalcEdit := CalcGui.Add("Edit", "x0 y" . headerH . " w600 h378 " . CLTheme_EditOptions("-Wrap"), initialValue)
     CLTheme_ApplyNativeControlTheme(CalcEdit)
 

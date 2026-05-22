@@ -41,7 +41,7 @@ addObsidianTodo(text) {
     CLTheme_AddRainHeader(TodoGuiObj, margin, margin, fixDpi(480), "OBSIDIAN TASK")
     CLTheme_AddPanel(TodoGuiObj, margin, editY, fixDpi(480), fixDpi(150), "panel")
 
-    TodoGuiObj.SetFont(CLTheme_FontOptions(11, "text"), CLTheme_Font("mono"))
+    TodoGuiObj.SetFont(CLTheme_FontOptions(11, "text"), CLTheme_Font("ui"))
     editCtrl := TodoGuiObj.Add("Edit", "x" . (margin+5) . " y" . (editY+5) . " w" . fixDpi(470) . " h" . fixDpi(140) . " " . CLTheme_EditOptions("vTodoEdit -WantReturn"), initialTaskText)
     todoEditHwnd := editCtrl.Hwnd
     CLTheme_ApplyNativeControlTheme(editCtrl)

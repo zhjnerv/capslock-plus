@@ -73,7 +73,7 @@ ydTranslate(ss)
 
             CLTheme_ApplyWindow(transGui, transGuiHwnd)
 
-            fontName := CLTheme_Font("mono")
+            fontName := CLTheme_Font("ui")
             transGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
             
             transGui.OnEvent("Escape", (*) => transGui.Hide())

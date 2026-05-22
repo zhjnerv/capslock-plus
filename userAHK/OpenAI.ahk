@@ -50,7 +50,7 @@ ShowPromptSelection()
     CLTheme_ApplyWindow(OpenAIgs, gsHwnd)
     selectedPromptIndex := 1
     
-    fontName := CLTheme_Font("mono")
+    fontName := CLTheme_Font("ui")
 
     margin := fixDpi(20)
     headerW := fixDpi(360)
@@ -203,7 +203,7 @@ CallOpenAIAPI()
         
         CLTheme_ApplyWindow(OpenAIResGui, openaiGuiHwnd)
 
-        fontName := CLTheme_Font("mono")
+        fontName := CLTheme_Font("ui")
         OpenAIResGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
         
         OpenAIResGui.OnEvent("Escape", (*) => OpenAIResGui.Hide())

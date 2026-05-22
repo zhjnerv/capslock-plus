@@ -14,9 +14,10 @@ global starMenuObj := Map()
 global ImageList0 := ""
 global ImageList1 := ""
 global doNothingWhenChanged := 0
+global QSelectedRow := 0
 
 CLq() {
-    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, needInitQ, guiW, editH, margin
+    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, needInitQ, guiW, editH, margin, QSelectedRow
 
     if (needInitQ) {
         initQGui()
@@ -38,6 +39,7 @@ CLq() {
         if (QGui) {
             QEdit.Value := ""
             QLV.Visible := false
+            QSelectedRow := 0
             QLV.Delete()
             
             ; Force specific height for compact look
@@ -89,12 +91,12 @@ initQGui() {
     global GuiHwnd, LV_show_Hwnd, editHwnd
     GuiHwnd := QGuiHwnd
 
-    fontName := CLTheme_Font("mono")
+    qbarFontName := CLTheme_Font("qbar")
     
     CLTheme_AddRainHeader(QGui, margin, margin, guiW - 2*margin, "QBAR STREAM")
 
     ; 输入框外壳负责形成黑绿舱体，也作为可拖动背景区域的一部分。
-    QGui.SetFont(CLTheme_FontOptions(16, "accent"), fontName)
+    QGui.SetFont(CLTheme_FontOptions(16, "accent"), qbarFontName)
     QBgText := CLTheme_AddPanel(QGui, margin, inputY, guiW - 2*margin, editH, "panel")
     QBgTextHwnd := QBgText.Hwnd
     
@@ -103,18 +105,20 @@ initQGui() {
     editPadY := (editH - innerEditH) / 2
     editPadX := fixDpi(10)
     
-    QGui.SetFont(CLTheme_FontOptions(16, "accent"), fontName)
+    QGui.SetFont(CLTheme_FontOptions(16, "accent"), qbarFontName)
     QEdit := QGui.Add("Edit", "x" . (margin + editPadX) . " y" . (inputY + editPadY) . " w" . (guiW - 2*margin - 2*editPadX) . " h" . innerEditH . " " . CLTheme_EditOptions("-Multi") . " vInputStr")
     QEdit.OnEvent("Change", doWhenChanged)
     editHwnd := QEdit.Hwnd
     CLTheme_ApplyNativeControlTheme(QEdit)
 
     ; 原生 ListView 负责结果交互，主题只控制可用的背景和文字颜色。
-    QGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
+    QGui.SetFont(CLTheme_FontOptions(11, "text"), qbarFontName)
     QLV := QGui.Add("ListView", "x" . margin . " y" . (inputY + editH + listGap) . " w" . (guiW - 2*margin) . " h" . listH . " " . CLTheme_ListOptions("+Count100 +NoSortHdr -Hdr -Multi"), ["Type", "FileName", "ForSort"])
     QLV_Hwnd := QLV.Hwnd
     LV_show_Hwnd := QLV_Hwnd
     CLTheme_ApplyNativeControlTheme(QLV)
+    QLV.OnEvent("Click", QBar_ListClick)
+    QLV.OnEvent("DoubleClick", QBar_ListDoubleClick)
     
     ; Activate Mica transparency
     ; WinSetTransColor("010203", QGuiHwnd) ; Disabled to make margins clickable
@@ -169,6 +173,94 @@ initImageList() {
     IL_Add(ImageList0, "shell32.dll", 14) ; 3: Web
 }
 
+QBar_ResultLabel(key, selected := false) {
+    return (selected ? ">> " : "   ") . key
+}
+
+QBar_IsActive() {
+    global QGuiHwnd
+    return (QGuiHwnd && WinActive("ahk_id " . QGuiHwnd))
+}
+
+QBar_AddResult(iconOption, itemType, key) {
+    global QLV
+    QLV.Add(iconOption, itemType, QBar_ResultLabel(key), key)
+}
+
+QBar_InsertResult(row, iconOption, itemType, key) {
+    global QLV
+    QLV.Insert(row, iconOption, itemType, QBar_ResultLabel(key), key)
+}
+
+QBar_RowKey(row) {
+    global QLV
+    if (row <= 0 || row > QLV.GetCount())
+        return ""
+
+    key := QLV.GetText(row, 3)
+    if (key != "")
+        return key
+
+    return RegExReplace(QLV.GetText(row, 2), "^(>>| {3})\s*", "")
+}
+
+QBar_SetSelected(row) {
+    global QLV, QEdit, QSelectedRow
+
+    itemCount := QLV.GetCount()
+    if (itemCount == 0) {
+        QSelectedRow := 0
+        return
+    }
+
+    row := Max(1, Min(row, itemCount))
+
+    ; 原生 ListView 在暗色主题下选中态不稳定，额外用文本前缀给出确定标识。
+    if (QSelectedRow >= 1 && QSelectedRow <= itemCount && QSelectedRow != row) {
+        oldKey := QBar_RowKey(QSelectedRow)
+        if (oldKey != "")
+            QLV.Modify(QSelectedRow, "Col2", QBar_ResultLabel(oldKey))
+    }
+
+    key := QBar_RowKey(row)
+    if (key != "")
+        QLV.Modify(row, "Col2", QBar_ResultLabel(key, true))
+
+    QLV.Modify(row, "Vis")
+    QSelectedRow := row
+    try QEdit.Focus()
+}
+
+QBar_MoveSelection(offset) {
+    global QLV, QSelectedRow
+
+    itemCount := QLV.GetCount()
+    if (itemCount == 0)
+        return
+
+    row := QSelectedRow
+    if (row < 1 || row > itemCount) {
+        row := QLV.GetNext(0, "F")
+        if (row == 0)
+            row := 1
+    }
+
+    QBar_SetSelected(row + offset)
+}
+
+QBar_ListClick(ctrl, row, *) {
+    if (row > 0)
+        QBar_SetSelected(row)
+}
+
+QBar_ListDoubleClick(ctrl, row, *) {
+    if (row <= 0)
+        return
+
+    QBar_SetSelected(row)
+    QBar_Enter()
+}
+
 scanStarMenu() {
     global starMenuObj, QLV, ImageList0
     
@@ -213,34 +305,35 @@ scanStarMenu() {
 }
 
 populateListView() {
-    global QLV, CLSets
+    global QLV, CLSets, QSelectedRow
+    QSelectedRow := 0
     QLV.Delete()
 
     ; Add QRun items
     if (CLSets.Has("QRun")) {
         for key, val in CLSets["QRun"] {
             ; Icon handling TODO
-            QLV.Add("Icon1", "Run", key, 0)
+            QBar_AddResult("Icon1", "Run", key)
         }
     }
 
     ; Add QSearch items
     if (CLSets.Has("QSearch")) {
         for key, val in CLSets["QSearch"] {
-            QLV.Add("Icon2", "Search", key, 0)
+            QBar_AddResult("Icon2", "Search", key)
         }
     }
 
     ; Add QWeb items
     if (CLSets.Has("QWeb")) {
         for key, val in CLSets["QWeb"] {
-            QLV.Add("Icon3", "Web", key, 0)
+            QBar_AddResult("Icon3", "Web", key)
         }
     }
 }
 
 doWhenChanged(*) {
-    global doNothingWhenChanged, QGui, QEdit, QLV, CLSets, starMenuObj
+    global doNothingWhenChanged, QGui, QEdit, QLV, CLSets, starMenuObj, QSelectedRow
     if (doNothingWhenChanged)
         return
         
@@ -258,6 +351,7 @@ doWhenChanged(*) {
     if (searchText == "") {
         ; Search cleared -> Switch to Compact Mode
         QLV.Visible := false
+        QSelectedRow := 0
         QLV.Delete()
         QGui.Show("h" . compactH . " NoActivate")
         return
@@ -265,13 +359,14 @@ doWhenChanged(*) {
     
     ; Perform Search / Filtering
     QLV.Opt("-Redraw")
+    QSelectedRow := 0
     QLV.Delete()
     
     ; Filter QRun
     if (CLSets.Has("QRun")) {
         for key, val in CLSets["QRun"] {
             if InStr(key, searchText)
-                QLV.Add("Icon1", "Run", key, 0)
+                QBar_AddResult("Icon1", "Run", key)
         }
     }
     
@@ -279,7 +374,7 @@ doWhenChanged(*) {
     if (CLSets.Has("QSearch")) {
         for key, val in CLSets["QSearch"] {
              if InStr(key, searchText)
-                QLV.Add("Icon2", "Search", key, 0)
+                QBar_AddResult("Icon2", "Search", key)
         }
     }
     
@@ -288,7 +383,7 @@ doWhenChanged(*) {
         if InStr(name, searchText) {
             ; itemObj is {path: fullPath, icon: iconIdx}
             iconOption := "Icon" . itemObj.icon
-            QLV.Add(iconOption, "App", name, 0)
+            QBar_AddResult(iconOption, "App", name)
         }
     }
     
@@ -297,7 +392,7 @@ doWhenChanged(*) {
         parts := StrSplit(searchText, " ")
         cmd := parts[1]
         if (CLSets.Has("QSearch") && CLSets["QSearch"].Has(cmd)) {
-             QLV.Insert(1, "Icon2", "Search", searchText, 0)
+             QBar_InsertResult(1, "Icon2", "Search", searchText)
         } else if (CLSets.Has("QRun") && CLSets["QRun"].Has(cmd)) {
             ; Also allow QRun checks to populate list (or just ensure it's not empty so Enter works on it?)
             ; The filtered list might be empty because "PS file" does not contain "PS " (exact string search) 
@@ -305,7 +400,7 @@ doWhenChanged(*) {
             ; Wait, QRun filter above uses `if InStr(key, searchText)`. 
             ; If key="PS", searchText="PS file", InStr("PS", "PS file") is FALSE.
             ; So we need to explicitly re-add or allow matching if searchText starts with key.
-             QLV.Insert(1, "Icon1", "Run", cmd, 0) ; Insert the CMD so it can be selected? Or insert the whole text?
+             QBar_InsertResult(1, "Icon1", "Run", cmd) ; Insert the CMD so it can be selected? Or insert the whole text?
              ; If we insert whole text "PS file", then QRun execution logic needs to handle that Key is "PS file" which is NOT in CLSets["QRun"].
              ; Better to insert "PS" (the valid key) or ensure standard QRun logic handles it.
              ; The loop below in QBar_Enter -> "Execute Selected Item" checks `if (CLSets["QRun"].Has(key))`.
@@ -319,6 +414,7 @@ doWhenChanged(*) {
     if (itemCount == 0) {
         ; No matches -> consistent with Compact Mode
         QLV.Visible := false
+        QSelectedRow := 0
         QGui.Show("h" . compactH . " NoActivate")
     } else {
         ; Matches found -> Calculate dynamic height
@@ -336,36 +432,26 @@ doWhenChanged(*) {
         QGui.Show("h" . fullH . " NoActivate")
         
         ; Select first item
-        QLV.Modify(1, "Focus Select")
+        QBar_SetSelected(1)
     }
 
     QLV.Opt("+Redraw")
 }
 
 QBar_Up(*) {
-    global QLV
-    if QLV.Focused
-        Send("{Up}")
-    else {
-        QLV.Focus()
-        Send("{Up}")
-    }
+    QBar_MoveSelection(-1)
 }
 
 QBar_Down(*) {
-    global QLV
-    if QLV.Focused
-        Send("{Down}")
-    else {
-        QLV.Focus()
-        Send("{Down}")
-    }
+    QBar_MoveSelection(1)
 }
 
 QBar_Enter(*) {
-    global QGui, QLV, QEdit, CLSets, starMenuObj
+    global QGui, QLV, QEdit, CLSets, starMenuObj, QSelectedRow
 
-    row := QLV.GetNext(0, "F")
+    row := QSelectedRow
+    if (row <= 0 || row > QLV.GetCount())
+        row := QLV.GetNext(0, "F")
     
     inputVal := QEdit.Value
     if (inputVal == "")
@@ -373,7 +459,7 @@ QBar_Enter(*) {
 
     ; --- 1. Execute Selected Item ---
     if (row > 0) {
-        key := QLV.GetText(row, 2)
+        key := QBar_RowKey(row)
         executed := false
         
         ; QRun
