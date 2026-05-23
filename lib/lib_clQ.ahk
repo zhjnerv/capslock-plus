@@ -182,6 +182,35 @@ QBar_IsActive() {
     return (QGuiHwnd && WinActive("ahk_id " . QGuiHwnd))
 }
 
+QBar_GetEditSelection() {
+    global QEdit
+    fallbackPos := (QEdit ? StrLen(QEdit.Value) : 0)
+
+    if (!QEdit)
+        return {start: fallbackPos, finish: fallbackPos}
+
+    try {
+        startBuf := Buffer(4, 0)
+        finishBuf := Buffer(4, 0)
+        SendMessage(0xB0, startBuf.Ptr, finishBuf.Ptr, QEdit.Hwnd) ; EM_GETSEL
+        return {start: NumGet(startBuf, 0, "UInt"), finish: NumGet(finishBuf, 0, "UInt")}
+    } catch {
+        return {start: fallbackPos, finish: fallbackPos}
+    }
+}
+
+QBar_SetEditSelection(sel) {
+    global QEdit
+    if (!QEdit)
+        return
+
+    textLen := StrLen(QEdit.Value)
+    startPos := Max(0, Min(sel.start, textLen))
+    finishPos := Max(0, Min(sel.finish, textLen))
+
+    try SendMessage(0xB1, startPos, finishPos, QEdit.Hwnd) ; EM_SETSEL
+}
+
 QBar_AddResult(iconOption, itemType, key) {
     global QLV
     QLV.Add(iconOption, itemType, QBar_ResultLabel(key), key)
@@ -214,6 +243,7 @@ QBar_SetSelected(row) {
     }
 
     row := Max(1, Min(row, itemCount))
+    editSelection := QBar_GetEditSelection()
 
     ; 原生 ListView 在暗色主题下选中态不稳定，额外用文本前缀给出确定标识。
     if (QSelectedRow >= 1 && QSelectedRow <= itemCount && QSelectedRow != row) {
@@ -229,6 +259,8 @@ QBar_SetSelected(row) {
     QLV.Modify(row, "Vis")
     QSelectedRow := row
     try QEdit.Focus()
+    ; Focus() 会让原生单行 Edit 重新选中全文；恢复输入位置，避免继续输入参数时覆盖命令。
+    QBar_SetEditSelection(editSelection)
 }
 
 QBar_MoveSelection(offset) {
