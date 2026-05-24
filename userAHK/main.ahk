@@ -35,9 +35,7 @@ keyFunc_example1(){
 }
 
 keyFunc_OpenAI(){
-    ; global ; V2 functions are local by default, but can access globals if declared
-    ; But here we probably don't need global unless OpenAI_Cap uses globals.
-    ; Assuming OpenAI_Cap is in OpenAI.ahk and included in global scope or accessible.
+    global OpenAIgs
     
     selText := getSelText()
     if(selText)
@@ -89,9 +87,9 @@ keyFunc_OpenAI(){
         try A_Clipboard := ClipboardOld
     }
     
-    ; SetTimer, setopenAIGuiActive, -400 -> SetTimer(Func, -400)
-    ; Assuming setOpenaiActive is defined in OpenAI.ahk
-    try SetTimer(setOpenaiActive, -400)
+    ; Prompt 选择框打开时不能抢焦点，否则会触发失焦取消。
+    if !(IsSet(OpenAIgs) && OpenAIgs)
+        try SetTimer(setOpenaiActive, -400)
     Return 
 }
 

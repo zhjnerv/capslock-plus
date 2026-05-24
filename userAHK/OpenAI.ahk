@@ -11,9 +11,16 @@ global system_prompt := "", user_content := "", promptSelectionDone := 0
 global selectedPromptFileName := "", selectedPromptIndex := 1
 global OpenAIgs := "" ; GUI Object for Settings/Prompt
 global OpenAIPromptControls := [], OpenAIPromptLabels := Map()
+global OpenAIPromptHotkeyHwnd := ""
 
 setOpenaiActive(*) {
-    global openaiGuiHwnd
+    global openaiGuiHwnd, OpenAIgs
+    if (OpenAIgs) {
+        try {
+            if WinExist("ahk_id " . OpenAIgs.Hwnd)
+                return
+        }
+    }
     if (openaiGuiHwnd && WinExist("ahk_id " . openaiGuiHwnd))
         WinActivate("ahk_id " . openaiGuiHwnd)
 }
@@ -43,12 +50,25 @@ OpenAI_Cap(oo)
 ShowPromptSelection()
 {
     global OpenAIgs, promptSelectionDone, selectedPromptFileName, selectedPromptIndex, OpenAIPromptControls, OpenAIPromptLabels
-    
+    global OpenAIPromptHotkeyHwnd, clState, clUsed
+
+    ; 选择框是独立交互入口，打开后立即释放 CapsLock+ 前缀上下文，
+    ; 避免 1-5、e、d 等按键继续被主分发器当作 CapsLock 组合键处理。
+    clState := 0
+    clUsed := 1
+    try SetTimer(changeMouseSpeed, 0)
+
+    if (OpenAIgs)
+        OpenAI_ClosePromptSelection(false)
+
     ; 显示选择对话框
     OpenAIgs := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "选择 Prompt 文件")
     gsHwnd := OpenAIgs.Hwnd
     CLTheme_ApplyWindow(OpenAIgs, gsHwnd)
     selectedPromptIndex := 1
+    selectedPromptFileName := "prompt.txt"
+    promptSelectionDone := 0
+    OpenAIPromptHotkeyHwnd := gsHwnd
     
     fontName := CLTheme_Font("ui")
 
@@ -75,6 +95,8 @@ ShowPromptSelection()
     btnY := optionY + optionH*5 + fixDpi(14)
     CLTheme_AddTextButton(OpenAIgs, margin, btnY, fixDpi(86), fixDpi(30), "确定", ConfirmPromptFile)
     CLTheme_AddTextButton(OpenAIgs, margin + fixDpi(96), btnY, fixDpi(86), fixDpi(30), "取消", CancelPromptFile)
+    OpenAIgs.OnEvent("Escape", CancelPromptFile)
+    OpenAIgs.OnEvent("Close", CancelPromptFile)
     
     OpenAIgs.Show("AutoSize Center")
 
@@ -82,44 +104,8 @@ ShowPromptSelection()
     OnMessage(0x0006, OpenAI_WM_ACTIVATE)
 
 
-    
-    ; 添加热键 context
-    hwnd := OpenAIgs.Hwnd
-    HotIfWinActive("ahk_id " . hwnd)
-    Hotkey("1", SelectPrompt1)
-    Hotkey("2", SelectPrompt2)
-    Hotkey("3", SelectPrompt3)
-    Hotkey("4", SelectPrompt4)
-    Hotkey("5", SelectPrompt5)
-    Hotkey("Escape", CancelPromptFileAndDisableHotkeys)
-    Hotkey("Enter", ConfirmPromptFileAndDisableHotkeys)
-    HotIfWinActive
-    
-    ; 强制重置CapsLock状态
-    ; CapsLock := "" ; Not strictly needed in V2 object scope usually
-    
-    ; 不使用 WinWaitClose，而是设置一个全局变量来标记选择状态
-    promptSelectionDone := 0
-    selectedPromptFileName := "prompt.txt"  ; 默认值
-    
-    ; 等待选择完成
-    waitCount := 0
-    while (!promptSelectionDone) {
-        Sleep(100)
-        waitCount += 1
-        if (waitCount > 100) {  ; 10秒 = 100 * 100ms
-            promptSelectionDone := 1
-            break
-        }
-    }
-    
-    DisablePromptHotkeys(hwnd)
-    
-    if (OpenAIgs)
-        OpenAIgs.Destroy()
-    
-    ; 重置等待计数器
-    waitCount := 0
+    EnablePromptHotkeys(gsHwnd)
+    SetTimer(OpenAI_PromptSelectionTimeout, -10000)
 }
 
 OpenAI_AddPromptOption(index, label, x, y, w, h) {
@@ -134,6 +120,11 @@ OpenAI_PromptOption_Click(index, *) {
 
 SelectPromptOnly(index) {
     global selectedPromptIndex, OpenAIPromptControls, OpenAIPromptLabels
+    if (index < 1)
+        index := 5
+    else if (index > 5)
+        index := 1
+
     selectedPromptIndex := index
     Loop OpenAIPromptControls.Length {
         ctrl := OpenAIPromptControls[A_Index]
@@ -143,18 +134,107 @@ SelectPromptOnly(index) {
     }
 }
 
+MovePromptSelection(offset) {
+    global selectedPromptIndex
+    SelectPromptOnly(selectedPromptIndex + offset)
+}
+
+SelectPromptPrevious(*) {
+    MovePromptSelection(-1)
+}
+
+SelectPromptNext(*) {
+    MovePromptSelection(1)
+}
+
+EnablePromptHotkeys(hwnd) {
+    HotIfWinActive("ahk_id " . hwnd)
+    Hotkey("1", SelectPrompt1)
+    Hotkey("2", SelectPrompt2)
+    Hotkey("3", SelectPrompt3)
+    Hotkey("4", SelectPrompt4)
+    Hotkey("5", SelectPrompt5)
+    Hotkey("Numpad1", SelectPrompt1)
+    Hotkey("Numpad2", SelectPrompt2)
+    Hotkey("Numpad3", SelectPrompt3)
+    Hotkey("Numpad4", SelectPrompt4)
+    Hotkey("Numpad5", SelectPrompt5)
+    Hotkey("Up", SelectPromptPrevious)
+    Hotkey("Down", SelectPromptNext)
+    Hotkey("e", SelectPromptPrevious)
+    Hotkey("d", SelectPromptNext)
+    Hotkey("CapsLock & e", SelectPromptPrevious)
+    Hotkey("CapsLock & d", SelectPromptNext)
+    Hotkey("Escape", CancelPromptFileAndDisableHotkeys)
+    Hotkey("Enter", ConfirmPromptFileAndDisableHotkeys)
+    HotIfWinActive
+}
+
 DisablePromptHotkeys(hwnd) {
-    try {
-        HotIfWinActive("ahk_id " . hwnd)
-        Hotkey("1", "Off")
-        Hotkey("2", "Off")
-        Hotkey("3", "Off")
-        Hotkey("4", "Off")
-        Hotkey("5", "Off")
-        Hotkey("Escape", "Off")
-        Hotkey("Enter", "Off")
-        HotIfWinActive
+    HotIfWinActive("ahk_id " . hwnd)
+    for _, keyName in ["1", "2", "3", "4", "5", "Numpad1", "Numpad2", "Numpad3", "Numpad4", "Numpad5", "Up", "Down", "e", "d", "CapsLock & e", "CapsLock & d", "Escape", "Enter"] {
+        try Hotkey(keyName, "Off")
     }
+    HotIfWinActive
+}
+
+OpenAI_GetPromptFileName(index) {
+    switch index {
+        case 1:
+            return "prompt.txt"
+        case 2:
+            return "rewrite_prompt.txt"
+        case 3:
+            return "translate_prompt.txt"
+        case 4:
+            return "summarize_prompt.txt"
+        case 5:
+            return "polish_prompt.txt"
+        default:
+            return "prompt.txt"
+    }
+}
+
+OpenAI_ClosePromptSelection(runApi := false) {
+    global OpenAIgs, promptSelectionDone, OpenAIPromptControls, OpenAIPromptLabels, OpenAIPromptHotkeyHwnd
+
+    alreadyDone := promptSelectionDone
+    promptSelectionDone := 1
+    try SetTimer(OpenAI_PromptSelectionTimeout, 0)
+
+    hwnd := OpenAIPromptHotkeyHwnd
+    if (!hwnd && OpenAIgs) {
+        try hwnd := OpenAIgs.Hwnd
+    }
+    if (hwnd)
+        DisablePromptHotkeys(hwnd)
+
+    promptGui := OpenAIgs
+
+    ; Destroy 会触发失焦消息。必须先清掉全局引用，避免 WM_ACTIVATE
+    ; 在销毁过程中再次进入 CancelPromptFile，造成同一个 GUI 重复销毁。
+    OpenAIgs := ""
+    OpenAIPromptHotkeyHwnd := ""
+    OpenAIPromptControls := []
+    OpenAIPromptLabels := Map()
+
+    if (promptGui) {
+        try promptGui.Hide()
+        SetTimer(OpenAI_DestroyPromptGui.Bind(promptGui), -100)
+    }
+
+    if (runApi && !alreadyDone)
+        SetTimer(CallOpenAIAPI, -10)
+}
+
+OpenAI_DestroyPromptGui(promptGui, *) {
+    try promptGui.Destroy()
+}
+
+OpenAI_PromptSelectionTimeout(*) {
+    global promptSelectionDone
+    if (!promptSelectionDone)
+        OpenAI_ClosePromptSelection(false)
 }
 
 
@@ -308,26 +388,10 @@ CallOpenAIAPI()
 
 ; 添加确认 prompt 文件选择的标签
 ConfirmPromptFile(*) {
-    global OpenAIgs, promptSelectionDone, selectedPromptIndex, selectedPromptFileName
+    global selectedPromptIndex, selectedPromptFileName
 
-    promptSelectionDone := 1
-    
-    ; 根据选择的索引设置文件名
-    if (selectedPromptIndex = 1) {
-        selectedPromptFileName := "prompt.txt"
-    } else if (selectedPromptIndex = 2) {
-        selectedPromptFileName := "rewrite_prompt.txt"
-    } else if (selectedPromptIndex = 3) {
-        selectedPromptFileName := "translate_prompt.txt"
-    } else if (selectedPromptIndex = 4) {
-        selectedPromptFileName := "summarize_prompt.txt"
-    } else if (selectedPromptIndex = 5) {
-        selectedPromptFileName := "polish_prompt.txt"
-    }
-    
-    ;在选择好文件之后，立即调用API请求相关的函数
-    ; Use SetTimer to decouple stack
-    SetTimer(CallOpenAIAPI, -10)
+    selectedPromptFileName := OpenAI_GetPromptFileName(selectedPromptIndex)
+    OpenAI_ClosePromptSelection(true)
 }
 
 ConfirmPromptFileAndDisableHotkeys(*) {
@@ -336,12 +400,9 @@ ConfirmPromptFileAndDisableHotkeys(*) {
 
 ; 添加取消选择的标签
 CancelPromptFile(*) {
-    global OpenAIgs, promptSelectionDone, selectedPromptFileName
-    if (OpenAIgs)
-        OpenAIgs.Destroy()
-        
-    promptSelectionDone := 1
+    global selectedPromptFileName
     selectedPromptFileName := "prompt.txt"  ; 使用默认值
+    OpenAI_ClosePromptSelection(false)
 }
 
 CancelPromptFileAndDisableHotkeys(*) {
