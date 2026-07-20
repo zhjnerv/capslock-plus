@@ -393,11 +393,33 @@ doWhenChanged(*) {
     QLV.Opt("-Redraw")
     QSelectedRow := 0
     QLV.Delete()
+
+    ; 键名完全等于输入时，优先显示，避免较早配置的包含匹配抢占首项。
+    if (CLSets.Has("QRun")) {
+        for key, val in CLSets["QRun"] {
+            if (key = searchText)
+                QBar_AddResult("Icon1", "Run", key)
+        }
+    }
+
+    if (CLSets.Has("QSearch")) {
+        for key, val in CLSets["QSearch"] {
+            if (key = searchText)
+                QBar_AddResult("Icon2", "Search", key)
+        }
+    }
+
+    for name, itemObj in starMenuObj {
+        if (name = searchText) {
+            iconOption := "Icon" . itemObj.icon
+            QBar_AddResult(iconOption, "App", name)
+        }
+    }
     
     ; Filter QRun
     if (CLSets.Has("QRun")) {
         for key, val in CLSets["QRun"] {
-            if InStr(key, searchText)
+            if (key != searchText && InStr(key, searchText))
                 QBar_AddResult("Icon1", "Run", key)
         }
     }
@@ -405,14 +427,14 @@ doWhenChanged(*) {
     ; Filter QSearch
     if (CLSets.Has("QSearch")) {
         for key, val in CLSets["QSearch"] {
-             if InStr(key, searchText)
+             if (key != searchText && InStr(key, searchText))
                 QBar_AddResult("Icon2", "Search", key)
         }
     }
     
     ; Filter StarMenu
     for name, itemObj in starMenuObj {
-        if InStr(name, searchText) {
+        if (name != searchText && InStr(name, searchText)) {
             ; itemObj is {path: fullPath, icon: iconIdx}
             iconOption := "Icon" . itemObj.icon
             QBar_AddResult(iconOption, "App", name)
