@@ -334,6 +334,48 @@ scanStarMenu() {
             }
         }
     }
+
+    ; 补充 Microsoft Store / UWP 应用：它们通常不在传统开始菜单 .lnk 目录里，
+    ; 只能从 shell:AppsFolder 拿到 AppUserModelID，再用 shell:AppsFolder\ID 启动。
+    scanAppsFolder()
+}
+
+; 扫描 shell:AppsFolder，补齐商店应用（如 ChatGPT）及部分系统工具。
+; 已在开始菜单 .lnk 中出现的同名项优先保留（图标通常更好）。
+scanAppsFolder() {
+    global starMenuObj
+
+    try {
+        shellApp := ComObject("Shell.Application")
+        appsFolder := shellApp.NameSpace("shell:AppsFolder")
+        if (!appsFolder)
+            return
+
+        for item in appsFolder.Items {
+            try {
+                name := item.Name
+            } catch {
+                continue
+            }
+            if (name = "" || starMenuObj.Has(name))
+                continue
+            if (RegExMatch(name, "i)卸载|uninstall"))
+                continue
+
+            try {
+                appId := item.Path
+            } catch {
+                continue
+            }
+            if (appId = "")
+                continue
+
+            ; AppUserModelID 难以稳定抽图标，复用 ImageList 通用图标（index 1）。
+            starMenuObj[name] := {path: "shell:AppsFolder\" . appId, icon: 1}
+        }
+    } catch {
+        ; COM / 权限异常时静默跳过，不影响已有 .lnk 索引
+    }
 }
 
 populateListView() {
