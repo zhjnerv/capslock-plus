@@ -16,6 +16,12 @@ global ImageList1 := ""
 global doNothingWhenChanged := 0
 global QSelectedRow := 0
 
+; 窗口外圈 = 四周 1px 亮色描边(crtRain)。
+; 描边整体内缩 1px,确保 SetWindowRgn 圆角裁剪后四边完整可见;内容再内缩 1px 露出描边底色。
+QBar_FramePadding() {
+    return fixDpi(1)
+}
+
 CLq() {
     global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, needInitQ, guiW, editH, margin, QSelectedRow
 
@@ -43,13 +49,16 @@ CLq() {
             QLV.Delete()
             
             ; Force specific height for compact look
-            margin := fixDpi(15)
+            margin := fixDpi(15) + QBar_FramePadding() * 2
             editH := fixDpi(50)
             headerH := fixDpi(20)
             headerGap := fixDpi(8)
             compactH := margin*2 + headerH + headerGap + editH
-            
-            QGui.Show("h" . compactH) ; Removed Center
+            guiH := compactH
+
+            QGui.Show("h" . guiH) ; Removed Center
+            QBar_SetRoundedRegion(guiH)
+            QBar_RefreshFrame(guiH)
         }
     }
 
@@ -80,13 +89,21 @@ initQGui() {
     margin := fixDpi(15)
     headerH := fixDpi(20)
     headerGap := fixDpi(8)
+
+    ; 窗口四周各留出 1px 用于绘制亮色描边,描边本身再内缩 1px。
+    ; 内容统一向右下偏移 2px,Show 高度已包含该内边距,无需额外叠加。
+    margin += QBar_FramePadding() * 2
+
     inputY := margin + headerH + headerGap
     listGap := fixDpi(12)
     
     QGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "Qbar")
     QGuiHwnd := QGui.Hwnd
-    
-    CLTheme_ApplyWindow(QGui, QGuiHwnd)
+
+    ; Qbar 需要纯黑 + 亮色边框,禁用 applyModernStyle 的 Mica/暗色标题栏,
+    ; 否则 DWM 会在窗口外圈再包一层灰/白色系统边框。
+    ; 圆角通过 WinSetRegion 手动实现,见 initQGui 末尾。
+    CLTheme_ApplyWindow(QGui, QGuiHwnd, false)
     
     global GuiHwnd, LV_show_Hwnd, editHwnd
     GuiHwnd := QGuiHwnd
@@ -97,7 +114,7 @@ initQGui() {
 
     ; 输入框外壳负责形成黑绿舱体，也作为可拖动背景区域的一部分。
     QGui.SetFont(CLTheme_FontOptions(16, "accent"), qbarFontName)
-    QBgText := CLTheme_AddPanel(QGui, margin, inputY, guiW - 2*margin, editH, "panel")
+    QBgText := CLTheme_AddPanel(QGui, margin, inputY, guiW - 2*margin, editH, "panelSoft")
     QBgTextHwnd := QBgText.Hwnd
     
     ; 实际输入框居中放置，保持 IME 和 Enter 行为使用原生 Edit。
@@ -113,7 +130,7 @@ initQGui() {
 
     ; 原生 ListView 负责结果交互，主题只控制可用的背景和文字颜色。
     QGui.SetFont(CLTheme_FontOptions(11, "text"), qbarFontName)
-    QLV := QGui.Add("ListView", "x" . margin . " y" . (inputY + editH + listGap) . " w" . (guiW - 2*margin) . " h" . listH . " " . CLTheme_ListOptions("+Count100 +NoSortHdr -Hdr -Multi"), ["Type", "FileName", "ForSort"])
+    QLV := QGui.Add("ListView", "x" . margin . " y" . (inputY + editH + listGap) . " w" . (guiW - 2*margin) . " h" . listH . " " . CLTheme_ListOptions("+Count100 +NoSortHdr -Hdr -Multi -Border"), ["Type", "FileName", "ForSort"])
     QLV_Hwnd := QLV.Hwnd
     LV_show_Hwnd := QLV_Hwnd
     CLTheme_ApplyNativeControlTheme(QLV)
@@ -159,8 +176,111 @@ initQGui() {
     OnMessage(0x0084, QBar_WM_NCHITTEST)
     
     ; Initial Show (calculated compact height)
+    ; guiH 已包含 1px 描边内边距,直接 Show 即可。
     compactH := margin*2 + headerH + headerGap + editH
-    QGui.Show("Hide w" . guiW . " h" . compactH)
+    guiH := compactH
+    QGui.Show("Hide w" . guiW . " h" . guiH)
+    QBar_SetRoundedRegion(guiH)
+    QBar_RefreshFrame(guiH)
+}
+
+; 用 WinSetRegion 给 Qbar 切圆角,避免 DWM 圆角带来的系统灰边。
+; radius 按 DPI 缩放,Win11 风格约 8px。
+QBar_SetRoundedRegion(guiH) {
+    global QGuiHwnd, guiW
+    if (!QGuiHwnd)
+        return
+
+    radius := fixDpi(8)
+    ; CreateRoundRectRgn(x1,y1,x2,y2,w,h) -> HRGN
+    hRgn := DllCall("gdi32\CreateRoundRectRgn", "int", 0, "int", 0, "int", guiW, "int", guiH, "int", radius, "int", radius, "ptr")
+    if (hRgn) {
+        DllCall("user32\SetWindowRgn", "ptr", QGuiHwnd, "ptr", hRgn, "int", 1)
+        ; SetWindowRgn 接管 hRgn 所有权,不再 DeleteObject
+    }
+}
+
+; 生成四分之一圆角的离散像素点。
+; 这里用外轮廓点而不是整块填充,避免四角出现明显的绿色方块。
+QBar_FrameCornerPoints(radius) {
+    points := []
+    pointMap := Map()
+    cornerRadius := Max(radius - 1, 1)
+
+    ; 同时按 x / y 两个方向取样,补齐离散化后的缺口,让圆角弧线更连续。
+    Loop cornerRadius + 1 {
+        offset := A_Index - 1
+        key := ""
+
+        y := Round(cornerRadius - Sqrt(Max(0, cornerRadius * cornerRadius - (offset - cornerRadius) * (offset - cornerRadius))))
+        key := offset . "," . y
+        if (!pointMap.Has(key)) {
+            pointMap[key] := true
+            points.Push([offset, y])
+        }
+
+        x := Round(cornerRadius - Sqrt(Max(0, cornerRadius * cornerRadius - (offset - cornerRadius) * (offset - cornerRadius))))
+        key := x . "," . offset
+        if (!pointMap.Has(key)) {
+            pointMap[key] := true
+            points.Push([x, offset])
+        }
+    }
+
+    return points
+}
+
+; 在 QGui 内部四周绘制 1px 亮色边框(crtRain, #94F98F)。
+; 横线内缩 radius,竖线通长,四角用离散圆弧点连接,避免出现实心角块。
+QBar_RefreshFrame(guiH) {
+    global QGui, guiW
+    static frameCtrls := []
+
+    if (!QGui)
+        return
+
+    for ctrl in frameCtrls {
+        try ctrl.Destroy()
+    }
+    frameCtrls := []
+
+    ; 使用最亮的 rain-bright 作为外框,确保在黑色桌面背景上可辨识。
+    frameColor := CLTheme_Color("crtRain")
+    borderPad := fixDpi(1)
+    radius := fixDpi(8)
+    cornerPoints := QBar_FrameCornerPoints(radius)
+    verticalInset := 0
+
+    ; 竖线不能从最顶/最底开始画,要从圆角弧“最后一行仍贴着侧边”的位置开始接直线。
+    ; 取最小 offsetY 会让直线接得太早,左右两边都会在圆角附近略微出头。
+    for point in cornerPoints {
+        offsetX := point[1]
+        offsetY := point[2]
+        if (offsetX = 0 && offsetY > verticalInset)
+            verticalInset := offsetY
+    }
+    if (verticalInset <= 0)
+        verticalInset := radius - 1
+
+    ; 横线:两端各内缩 radius,避开圆角弧。
+    ; 上边框在 y=borderPad, 下边框对称落在 guiH-2*borderPad。
+    frameCtrls.Push(QGui.Add("Text", "x" . radius . " y" . borderPad . " w" . (guiW - 2*radius) . " h" . borderPad . " Background" . frameColor))
+    frameCtrls.Push(QGui.Add("Text", "x" . radius . " y" . (guiH - 2*borderPad) . " w" . (guiW - 2*radius) . " h" . borderPad . " Background" . frameColor))
+
+    ; 竖线:按圆角弧的切点裁短,避免上下超出圆角。
+    frameCtrls.Push(QGui.Add("Text", "x" . borderPad . " y" . (borderPad + verticalInset) . " w" . borderPad . " h" . (guiH - 2*(borderPad + verticalInset)) . " Background" . frameColor))
+    frameCtrls.Push(QGui.Add("Text", "x" . (guiW - 2*borderPad) . " y" . (borderPad + verticalInset) . " w" . borderPad . " h" . (guiH - 2*(borderPad + verticalInset)) . " Background" . frameColor))
+
+    ; 四角圆弧:按半径生成 1px 点阵,分别镜像到四个角。
+    for point in cornerPoints {
+        offsetX := point[1]
+        offsetY := point[2]
+
+        frameCtrls.Push(QGui.Add("Text", "x" . (borderPad + offsetX) . " y" . (borderPad + offsetY) . " w1 h1 Background" . frameColor))
+        frameCtrls.Push(QGui.Add("Text", "x" . ((guiW - 2*borderPad) - offsetX) . " y" . (borderPad + offsetY) . " w1 h1 Background" . frameColor))
+        frameCtrls.Push(QGui.Add("Text", "x" . (borderPad + offsetX) . " y" . ((guiH - 2*borderPad) - offsetY) . " w1 h1 Background" . frameColor))
+        frameCtrls.Push(QGui.Add("Text", "x" . ((guiW - 2*borderPad) - offsetX) . " y" . ((guiH - 2*borderPad) - offsetY) . " w1 h1 Background" . frameColor))
+    }
 }
 
 initImageList() {
@@ -174,7 +294,9 @@ initImageList() {
 }
 
 QBar_ResultLabel(key, selected := false) {
-    return (selected ? ">> " : "   ") . key
+    ; 原生 ListView 无法按行改色,改用更显眼的前缀字符让选中行从暗色背景里跳出来。
+    ; ▶ 的辨识度比 >> 高,且与 MATRIX-DESIGN 的"光标"语义一致。
+    return (selected ? "▶ " : "   ") . key
 }
 
 QBar_IsActive() {
@@ -230,7 +352,11 @@ QBar_RowKey(row) {
     if (key != "")
         return key
 
-    return RegExReplace(QLV.GetText(row, 2), "^(>>| {3})\s*", "")
+    ; 防御性剥离:除了选中前缀,还要兼容历史版本中误传入 Modify 的 "Vis" 残留。
+    text := QLV.GetText(row, 2)
+    if (text == "Vis")
+        return ""
+    return RegExReplace(text, "^(▶|>>| {3})\s*", "")
 }
 
 QBar_SetSelected(row) {
@@ -256,7 +382,7 @@ QBar_SetSelected(row) {
     if (key != "")
         QLV.Modify(row, "Col2", QBar_ResultLabel(key, true))
 
-    QLV.Modify(row, "Vis")
+    QLV.Modify(row, "Select", "Focus")
     QSelectedRow := row
     try QEdit.Focus()
     ; Focus() 会让原生单行 Edit 重新选中全文；恢复输入位置，避免继续输入参数时覆盖命令。
@@ -412,8 +538,9 @@ doWhenChanged(*) {
         return
         
     searchText := QEdit.Value
-    
-    margin := fixDpi(15)
+
+    ; 内容区尺寸:注意 margin 已叠加 QBar_FramePadding()*2,与 initQGui 保持一致。
+    margin := fixDpi(15) + QBar_FramePadding() * 2
     editH := fixDpi(50)
     headerH := fixDpi(20)
     headerGap := fixDpi(8)
@@ -421,13 +548,16 @@ doWhenChanged(*) {
     maxListH := fixDpi(350)
     guiW := fixDpi(650)
     compactH := margin*2 + headerH + headerGap + editH
-    
+    compactGuiH := compactH
+
     if (searchText == "") {
         ; Search cleared -> Switch to Compact Mode
         QLV.Visible := false
         QSelectedRow := 0
         QLV.Delete()
-        QGui.Show("h" . compactH . " NoActivate")
+        QGui.Show("h" . compactGuiH . " NoActivate")
+        QBar_SetRoundedRegion(compactGuiH)
+        QBar_RefreshFrame(compactGuiH)
         return
     }
     
@@ -511,22 +641,27 @@ doWhenChanged(*) {
         ; No matches -> consistent with Compact Mode
         QLV.Visible := false
         QSelectedRow := 0
-        QGui.Show("h" . compactH . " NoActivate")
+        QGui.Show("h" . compactGuiH . " NoActivate")
+        QBar_SetRoundedRegion(compactGuiH)
+        QBar_RefreshFrame(compactGuiH)
     } else {
         ; Matches found -> Calculate dynamic height
         ; Row height estimation: s11 font + small icon ~ 28px
-        rowH := fixDpi(28) 
+        rowH := fixDpi(28)
         reqH := itemCount * rowH + fixDpi(8) ; slight buffer
-        
+
         finalListH := Min(reqH, maxListH)
-        
+
         QLV.Move(,, guiW - 2*margin, finalListH)
         QLV.Visible := true
-        
+
         ; Resize Window
-        fullH := margin + headerH + headerGap + editH + listGap + finalListH + margin
-        QGui.Show("h" . fullH . " NoActivate")
-        
+        fullContentH := margin + headerH + headerGap + editH + listGap + finalListH + margin
+        fullGuiH := fullContentH
+        QGui.Show("h" . fullGuiH . " NoActivate")
+        QBar_SetRoundedRegion(fullGuiH)
+        QBar_RefreshFrame(fullGuiH)
+
         ; Select first item
         QBar_SetSelected(1)
     }
@@ -700,5 +835,3 @@ QBar_WM_NCHITTEST(wParam, lParam, msg, hwnd) {
         return 2 ; HTCAPTION
     }
 }
-
-
