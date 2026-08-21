@@ -1,6 +1,7 @@
 # Auto detect text files and perform LF normalization
+# 统一 LF:仓库 index 全部以 LF 存储,消除 CRLF 警告
 * text=auto
-* text eol=crlf
+* text eol=lf
 
 
 *.ico binary

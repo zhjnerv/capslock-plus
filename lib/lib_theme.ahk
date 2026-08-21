@@ -2,25 +2,31 @@
 ; 只集中管理视觉样式，不承载业务逻辑。
 
 CLTheme_Color(name) {
+    ; 色板严格遵循 MATRIX-DESIGN.md §2 深色模式令牌,浮起层级:base < raise < float < user。
     static colors := Map(
-        "window", "000500",
-        "surface", "020A03",
-        "panel", "061206",
-        "panelSoft", "071807",
-        "field", "031005",
-        "fieldHot", "08220D",
-        "crtSurface", "031806",
-        "crtRain", "78FF9C",
-        "crtRainDim", "2FE66A",
-        "crtTitle", "B7FF5A",
-        "button", "0B5F2A",
-        "buttonHover", "137A39",
-        "text", "C8FFD2",
-        "textStrong", "E8FFEE",
-        "muted", "37A85D",
-        "accent", "00FF66",
-        "accentSoft", "57FF8F",
-        "shadow", "001A08",
+        "window", "000000",         ; --mx-bg-base  纯黑,电影正统
+        "surface", "051405",        ; --mx-bg-raise 卡片/次级面板
+        "panel", "051405",          ; 同 raise
+        "panelSoft", "0A1F0A",      ; --mx-bg-float 悬浮层
+        "field", "0A1F0A",          ; 输入框底,使用 float,让输入区从面板再浮一层
+        "fieldHot", "0F2F0F",       ; --mx-bg-user  选中/hover 行
+        "hover", "1A4D1A",          ; --mx-hover
+        "active", "33CC33",         ; --mx-active
+        "crtSurface", "000000",     ; CRT 头带底色,统一为纯黑
+        "crtRain", "94F98F",        ; --mx-rain-bright
+        "crtRainDim", "0F610A",     ; --mx-rain-dim
+        "crtTitle", "7BFF78",       ; --mx-rain-cursor 头部最亮字符色
+        "button", "0A1F0A",
+        "buttonHover", "1A4D1A",
+        "text", "6FF769",           ; --mx-rain-body 正文主色
+        "textStrong", "94F98F",     ; --mx-rain-bright
+        "muted", "2E9E1F",          ; --mx-rain-mid
+        "disabled", "0F610A",       ; --mx-rain-dim
+        "accent", "00FF41",         ; --mx-accent  文化绿,边框/链接/焦点
+        "accentSoft", "57FF8F",     ; 强调文字亮一档
+        "accentText", "E0FFE0",     ; --mx-accent-text 高亮选中压在上面的文字
+        "glow", "00FF41",           ; 外发光源色
+        "shadow", "000000",
         "transparentKey", "010203"
     )
 
