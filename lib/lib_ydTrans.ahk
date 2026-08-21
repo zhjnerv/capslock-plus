@@ -1,4 +1,4 @@
-﻿/*
+/*
 DeepLX 翻译 (原 有道翻译 模块迁移)
 */
 
@@ -176,7 +176,7 @@ DeepLApi() {
                 MsgBoxStr := "原文：`r`n" . NativeString . "`r`n`r`n"
                 MsgBoxStr .= "主要译文：`r`n" . primaryTranslation . "`r`n`r`n"
 
-                if (alternativeTranslations.Length > 0) {
+                if (alternativeTranslations is Array && alternativeTranslations.Length > 0) { ; 新接口可能返回 null=空串，需判类型
                     MsgBoxStr .= "次要译文："
                     for alt in alternativeTranslations {
                         MsgBoxStr .= "`r`n" . alt
