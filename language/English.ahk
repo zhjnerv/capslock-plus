@@ -109,6 +109,10 @@ allowClipboard=1
 ; Whether to show the startup loading animation, 1 is yes (default), 0 is no
 loadingAnimation=1
 
+;Math Board (Caps + F2) numeric-key mapping rule:
+;1: letter keys map to digits only when the CapsLock logical state is on (default; V1 behavior)
+;0: always mapped while Math Board is open (default after the V2 refactor)
+mathBoardNumpadCapsLock=1
 ;----------------------------------------------------------------
 ; ## Qbar searching command settings
 

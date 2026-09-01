@@ -57,11 +57,19 @@ createMathBoard(initialValue) {
     ; Internal Hotkeys for MathBoard
     HotIfWinActive("ahk_id " . CalcGuiHwnd)
 
-    ; If CapsLock is on (logic state), enable numpad-like mapping
-    ; V1 used GetKeyState("CapsLock", "T")
-    ; Here we can use our clState too
+    ; 根据开关决定是否需要 CapsLock 门控（默认 V1 行为）
+    _numpadRequireCaps := true
+    if (CLSets.Has("Global") && CLSets["Global"].Has("mathBoardNumpadCapsLock") && CLSets["Global"]["mathBoardNumpadCapsLock"] == "0")
+        _numpadRequireCaps := false
 
-    ; Since we want this even if CapsLock is just logically used:
+    ; 嵌套函数：每次按键由 HotIf 调用，捕获外层 _numpadRequireCaps
+    _mathBoard_HotIf(*) {
+        if (!_numpadRequireCaps)
+            return true
+        return GetKeyState("CapsLock", "T")
+    }
+
+    HotIf _mathBoard_HotIf
 
     ; Mapping logic (Simplified from V1)
     Hotkey("u", (*) => Send("7"))
@@ -80,6 +88,9 @@ createMathBoard(initialValue) {
     Hotkey("p", (*) => Send("{U+002a}"))
     Hotkey("/", (*) => Send("{U+002f}"))
     Hotkey("[", (*) => Send("{U+002f}"))
+
+    ; Shift 版本仅要求窗口激活（与 V1 一致，不受 CapsLock 状态影响）
+    HotIfWinActive("ahk_id " . CalcGuiHwnd)
 
     ; Shift versions
     Hotkey("+u", (*) => Send("7"))
