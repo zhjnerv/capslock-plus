@@ -3,10 +3,11 @@
 ---
 
 ## 修改简介
-由于原有的翻译接口(有道翻译)一直无法使用，在Gemini的帮助下修改了翻译接口为白嫖(DeepL)接口，顺带自己搭建了 [DeepLX Powerful DeepL Translation API](https://deeplx.owo.network)。
+原有的有道/DeepLX 翻译接口已经不稳定，当前 `CapsLock+F3` 默认改为使用 `[AI]` 中配置的 OpenAI-compatible 大模型接口；旧版 DeepLX/兼容接口仍然保留，可通过 `[TTranslate] provider=deeplx` 切换。
 
-- 能力有限，无法像原作者一样给出对应的选择配置，文件已经内置好了我自己搭建的 [DeepLX](https://zhjwork.online/2024/04/30/deeplx%e7%99%bd%e5%ab%96%e6%9c%8d%e5%8a%a1/) 服务，直接使用即可。
-- 同时修改了翻译窗口，对应长段落翻译增加了滚动条。
+- 大模型翻译复用现有 AI 结果窗口，并直接使用翻译 Prompt。
+- 旧版接口地址仍由 `[TTranslate] endpoint` 配置，便于以后找到可用端口时恢复使用。
+- 翻译窗口支持长段落滚动。
 - **Qbar 体验优化**：支持通过鼠标移动 Qbar 对话框位置。采用 `WM_NCHITTEST` 命中测试技术，点击搜索框背景、对话框边缘或空白处可平滑拖动，同时不影响输入框和列表的正常交互。
 
 **再次感谢 Google Gemini 和 DeepLX 的无私奉献。**
@@ -35,7 +36,7 @@ CapsLock+ 是一个把 `CapsLock` 改造成高频效率键的桌面增强工具�
 - 独立剪贴板：内置两套独立剪贴板，默认对应 `CapsLock + C/X/V` 和 `CapsLock + LAlt + C/X/V`
 - Qbar：快速搜索、启动文件、打开网页、记录热字符串，支持选中文本/路径/网址直接带入
 - TabScript：文本替换、快捷短语、行内表达式计算、JavaScript 扩展计算
-- 翻译：当前实现基于 DeepLX，自动判断中英方向并显示结果窗口
+- 翻译：默认使用大模型翻译，旧版 DeepLX/兼容接口可通过配置切换
 - 窗口控制：窗口绑定、窗口置顶、窗口透明、窗口跳转
 - 鼠标控制：`CapsLock + LAlt` 临时切换系统鼠标速度，`CapsLock + LAlt + 滚轮` 调整速度值
 - 计算板：独立数学输入窗口，支持快速计算
@@ -106,14 +107,15 @@ Qbar 当前支持：
 JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持通过 `loadScript/` 加载自定义脚本。
 
 ### 3. 翻译
-`CapsLock + F3` 对应 [lib/lib_ydTrans.ahk](lib/lib_ydTrans.ahk)。
+`CapsLock + F3` 默认使用 [userAHK/OpenAI.ahk](userAHK/OpenAI.ahk) 中的大模型翻译入口；旧版接口仍保留在 [lib/lib_ydTrans.ahk](lib/lib_ydTrans.ahk) 中。
 
-当前仓库实际行为是：
+当前行为是：
 
-- 使用 DeepLX 接口，而不是旧版 README 中的有道免费接口
-- 中文占比较高时翻译成英文，否则翻译成中文
-- 自动把主译文复制到剪贴板
-- 结果显示在可滚动的独立窗口中
+- 默认读取 `[TTranslate] provider=ai`，使用 `[AI]` 中的 OpenAI-compatible `base_url`、`model` 和 `OpenAI_key`
+- 直接使用翻译 Prompt，不弹出 `CapsLock + F8` 的 Prompt 选择框
+- 由翻译 Prompt 判断语言方向，并将结果自动复制到剪贴板
+- 复用 AI 扩展的可滚动结果窗口
+- 将 `[TTranslate] provider=deeplx` 可切换回旧版 DeepLX/兼容接口，地址由 `endpoint` 指定
 
 ### 4. 窗口控制
 - `CapsLock + F6`：切换当前窗口置顶
@@ -145,7 +147,7 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 | `[QWeb]` | Qbar 快速打开网页 |
 | `[TabHotString]` | TabScript 字符串替换 |
 | `[QStyle]` | Qbar 外观样式 |
-| `[TTranslate]` | 翻译设置，当前代码主要使用 `endpoint` |
+| `[TTranslate]` | F3 翻译后端设置；`provider=ai` 使用大模型，`provider=deeplx` 使用旧接口 |
 | `[AI]` | OpenAI 扩展设置 |
 | `[Obsidian]` | Obsidian 任务追加扩展设置 |
 | `[Keys]` | 热键映射 |
@@ -158,6 +160,8 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 terminalProgram=terminal
 
 [TTranslate]
+; F3 默认使用大模型；改为 deeplx 可切回旧接口
+provider=ai
 endpoint=http://127.0.0.1:1188/translate
 
 [AI]

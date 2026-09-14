@@ -48,6 +48,7 @@
         [QStyle]
         
         [TTranslate]
+        provider=ai
         
         [Keys]
     )"
@@ -267,29 +268,12 @@
         ; ## +T翻译设置
         
         [TTranslate]
-        ;有道api接口
-        ;翻译功能通过调用有道的api实现。
+        ; CapsLock+F3 的翻译后端：ai（默认）或 deeplx。
+        ; ai：使用 [AI] 中的 OpenAI-compatible 接口和模型；deeplx：保留旧版翻译接口。
+        provider=ai
         
-        ;收费版api申请网址: https://ai.youdao.com/console/#/
-        ;有道翻译 API 入门指南: https://ai.youdao.com/doc.s#guide
-        
-        ;翻译 API 类型，目前只能为 1
-        ;0: 免费版有道 API（已不可使用，有道翻译不再提供）
-        ;1: 收费版有道 API（默认值）
-        apiType=1
-        
-        ;收费版申请的参数
-        
-        ;应用ID
-        appPaidID=xxx
-        
-        ;应用密钥
-        appPaidKey=xxx
-        
-        ;曾经 Capslock+ 可以选择使用免费版或收费版的有道 API 来提供翻译功能，现在有道已经不再提供免费版 API，
-        ;只能使用收费版的 API，以下与免费版 API 相关的参数已经废弃，如果你的设置文件中有使用，请删除掉。
-        ;apiKey=xxx
-        ;keyFrom=xxx
+        ; provider=deeplx 时使用的 DeepLX/兼容接口地址。
+        endpoint=http://127.0.0.1:1188/translate
         
         ;----------------------------------------------------------------;
         
@@ -466,7 +450,7 @@
         ;Math Board
         caps_f2=keyFunc_mathBoard
         
-        ;有道翻译
+        ;大模型翻译（可通过 [TTranslate] provider=deeplx 切回旧接口）
         caps_f3=keyFunc_translate
         
         ;窗口透明

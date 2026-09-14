@@ -119,7 +119,45 @@ keyFunc_forwardDeleteWord(){
 }
 
 keyFunc_translate(){
-    global
+    global CLSets
+
+    ; F3 默认使用大模型翻译；将 provider 改为 deeplx/legacy 可切回旧接口。
+    provider := "ai"
+    if (CLSets.Has("TTranslate") && CLSets["TTranslate"].Has("provider"))
+        provider := StrLower(Trim(CLSets["TTranslate"]["provider"]))
+
+    if (provider = "deeplx" || provider = "legacy") {
+        keyFunc_translate_legacy()
+        return
+    }
+
+    keyFunc_translate_ai()
+}
+
+; 使用大模型翻译，复用 OpenAI 扩展的结果窗口和剪贴板行为。
+keyFunc_translate_ai(){
+    selText := getSelText()
+    if (selText) {
+        OpenAI_Translate(selText)
+        return
+    }
+
+    ; 没有选区时取光标附近的一个词。先恢复原剪贴板，再发起同步 AI 请求，
+    ; 避免请求结束后的原剪贴板恢复覆盖大模型译文。
+    ClipboardOld := ClipboardAll()
+    A_Clipboard := ""
+    SendInput("^{Left}^+{Right}^{insert}")
+    if ClipWait(0.5)
+        selText := A_Clipboard
+    else
+        selText := ""
+    A_Clipboard := ClipboardOld
+
+    OpenAI_Translate(selText)
+}
+
+; 旧版 DeepLX/兼容接口翻译实现，保留作为备用后端。
+keyFunc_translate_legacy(){
     selText := getSelText()
     if(selText)
     {
@@ -137,7 +175,7 @@ keyFunc_translate(){
         }
         else
         {
-            ; No text selected, open empty translation dialog
+            ; 没有选中文本时打开空白翻译窗口
             ydTranslate("")
         }
         A_Clipboard := ClipboardOld

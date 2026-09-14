@@ -1,4 +1,4 @@
-﻿; #Include "../lib/lib_json.ahk" ; Already included by CapsLock+.ahk
+; #Include "../lib/lib_json.ahk" ; Already included by CapsLock+.ahk
 
 ;指定文件编码
 ; #Persistent ; Not needed in V2 for included files usually, main script persists
@@ -25,11 +25,15 @@ setOpenaiActive(*) {
         WinActivate("ahk_id " . openaiGuiHwnd)
 }
 
-OpenAI_Cap(oo)
-{
-    global OpenAI_key, base_url, model, temperature, top_p, user_content
-    
-    ; 移除全局声明，因为已经在开头声明过了
+OpenAI_LoadConfig() {
+    global OpenAI_key, base_url, model, temperature, top_p, CLSets
+
+    OpenAI_key := ""
+    base_url := ""
+    model := "gpt-3.5-turbo"
+    temperature := 0.7
+    top_p := 1
+
     if (CLSets.Has("AI")) {
         OpenAI_key  := CLSets["AI"].Has("OpenAI_key") ? CLSets["AI"]["OpenAI_key"] : ""
         base_url    := CLSets["AI"].Has("base_url") ? CLSets["AI"]["base_url"] : ""
@@ -37,13 +41,34 @@ OpenAI_Cap(oo)
         temperature := CLSets["AI"].Has("temperature") ? CLSets["AI"]["temperature"] : 0.7
         top_p       := CLSets["AI"].Has("top_p") ? CLSets["AI"]["top_p"] : 1
     }
-    
-    ; 预处理输入文本
-    oo := RegExReplace(oo, "\s+", " ") ; 将所有空白符替换为空格
-    user_content := Trim(oo) ; 去除首尾空格
-    
-    ; 启动Prompt选择流程
+}
+
+OpenAI_Cap(oo)
+{
+    global user_content
+
+    OpenAI_LoadConfig()
+
+    ; F8 保留原有行为：压缩空白后进入 Prompt 选择流程。
+    oo := RegExReplace(oo, "\s+", " ")
+    user_content := Trim(oo)
+
     ShowPromptSelection()
+}
+
+; F3 专用的大模型翻译入口：不弹出 F8 的 Prompt 选择框。
+OpenAI_Translate(translationText) {
+    global user_content, selectedPromptFileName
+
+    OpenAI_LoadConfig()
+    user_content := Trim(translationText)
+    selectedPromptFileName := "translate_prompt.txt"
+    CallOpenAIAPI("translate_prompt.txt", "正在翻译……", false)
+}
+
+; 翻译 Prompt 文件不存在时的内置兜底文本，避免新安装环境无法使用 F3。
+OpenAI_DefaultTranslationPrompt() {
+    return "你是专业翻译助手。根据输入文本的语言，在中文和英文之间进行准确、自然的翻译；中文翻译成英文，英文或其它语言翻译成中文。只输出译文，不要解释、不要添加标题，不要丢失原文的换行、Markdown、代码、数字和专有名词。"
 }
 
 ;单独的显示prompt选择框的函数
@@ -238,37 +263,52 @@ OpenAI_PromptSelectionTimeout(*) {
 }
 
 
-;专门用来处理API请求的函数
-CallOpenAIAPI()
+OpenAI_GetChatCompletionsUrl() {
+    global base_url
+
+    apiBase := RTrim(Trim(base_url), "/")
+    if RegExMatch(apiBase, "i)/v1$")
+        return apiBase . "/chat/completions"
+    return apiBase . "/v1/chat/completions"
+}
+
+; 专门用来处理 OpenAI-compatible API 请求的函数。
+; wrapUserContent=true 保持 F8 旧 Prompt 的 <目标内容> 输入格式，
+; F3 翻译则直接发送原文，避免翻译 Prompt 被额外标签干扰。
+CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := true)
 {
     global system_prompt, user_content, selectedPromptFileName
     global openaiGuiHwnd, openAI_transEditHwnd, OpenAIResGui
-    
-    ; 读取选定的 prompt 文件并继续执行
-    promptPath := A_WorkingDir . "\userAHK\prompt\" . selectedPromptFileName
-    ; userAHK path adjustment since prompted files likely moved or relative
-    
-    if !FileExist(promptPath)
-        promptPath := A_WorkingDir . "\prompt\" . selectedPromptFileName ; Try root prompt
 
-    try {
-        system_prompt := FileRead(promptPath)
-    } catch {
-        system_prompt := ""
-    }
-    
-    ; 如果读取失败，使用默认 prompt
-    if (system_prompt == "") {
-        try {
-            system_prompt := FileRead(A_WorkingDir . "\userAHK\prompt\prompt.txt")
+    promptName := promptFileName != "" ? promptFileName : selectedPromptFileName
+    if (promptName = "")
+        promptName := "prompt.txt"
+
+    ; 读取选定的 Prompt 文件；翻译 Prompt 缺失时使用内置文本。
+    promptPath := A_WorkingDir . "\userAHK\prompt\" . promptName
+    if !FileExist(promptPath)
+        promptPath := A_WorkingDir . "\prompt\" . promptName
+
+    system_prompt := ""
+    try system_prompt := FileRead(promptPath)
+
+    if (system_prompt = "" && promptName = "translate_prompt.txt")
+        system_prompt := OpenAI_DefaultTranslationPrompt()
+
+    ; F8 的旧 Prompt 缺失时仍使用原有默认 Prompt。
+    if (system_prompt = "") {
+        try system_prompt := FileRead(A_WorkingDir . "\userAHK\prompt\prompt.txt")
+        if (system_prompt = "") {
+            try system_prompt := FileRead(A_WorkingDir . "\prompt\prompt.txt")
         }
     }
 
-    ; 显示处理中的对话框
-    OpenAIMsgBoxStr := user_content ? "正在修改……" : ""
-    
+    ; 显示处理中的对话框。
+    statusText := processingText != "" ? processingText : "正在修改……"
+    OpenAIMsgBoxStr := user_content ? statusText : ""
+
     DetectHiddenWindows(true)
-    
+
     if (openaiGuiHwnd && WinExist("ahk_id " . openaiGuiHwnd))
     {
         try ControlSetText(OpenAIMsgBoxStr, openAI_transEditHwnd)
@@ -280,17 +320,17 @@ CallOpenAIAPI()
     {
         OpenAIResGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "openai修饰")
         openaiGuiHwnd := OpenAIResGui.Hwnd
-        
+
         CLTheme_ApplyWindow(OpenAIResGui, openaiGuiHwnd)
 
         fontName := CLTheme_Font("ui")
         OpenAIResGui.SetFont(CLTheme_FontOptions(11, "text"), fontName)
-        
+
         OpenAIResGui.OnEvent("Escape", (*) => OpenAIResGui.Hide())
         OpenAIResGui.OnEvent("Close", (*) => OpenAIResGui.Hide())
-        
+
         ; Hidden default button
-        OpenAIResGui.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK").OnEvent("Click", ButtonOK_OpenAI) 
+        OpenAIResGui.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK").OnEvent("Click", ButtonOK_OpenAI)
 
         margin := fixDpi(10)
         innerW := fixDpi(500)
@@ -306,85 +346,80 @@ CallOpenAIAPI()
         openAI_transEditObj := OpenAIResGui.Add("Edit", "x" . (margin+5) . " y" . (fieldY+5) . " w" . (innerW-10) . " h" . (innerH-10) . " " . CLTheme_EditOptions("vopenAI_transEdit -WantReturn"), OpenAIMsgBoxStr)
         openAI_transEditHwnd := openAI_transEditObj.Hwnd
         CLTheme_ApplyNativeControlTheme(openAI_transEditObj)
-        
+
         OpenAIResGui.Show("Center w" . (innerW + 2*margin) . " h" . (innerH + 2*margin + headerH + headerGap))
-        
+
         ; 点击外部自动隐藏
         OnMessage(0x0006, OpenAI_WM_ACTIVATE)
-        
-        try ControlFocus(openAI_transEditHwnd)
 
+        try ControlFocus(openAI_transEditHwnd)
         SetTimer(setOpenaiActive, 50)
     }
 
-
-    ; 如果有内容，则调用API处理
-    if(user_content) 
+    ; 没有输入文本时仅打开结果窗口，供用户手动输入。
+    if(user_content)
     {
-        ; 创建一个空对象
-        data := Map()
+        if (Trim(OpenAI_key) = "") {
+            OpenAIMsgBoxStr := "错误：未配置 [AI] OpenAI_key。"
+        } else if (Trim(base_url) = "") {
+            OpenAIMsgBoxStr := "错误：未配置 [AI] base_url。"
+        } else {
+            ; 接口采用 OpenAI-compatible Chat Completions 格式。
+            data := Map()
+            data["model"] := model
+            userMessage := wrapUserContent ? "目标内容如下：<" . user_content . ">" : user_content
+            data["messages"] := [Map("role", "system", "content", system_prompt), Map("role", "user", "content", userMessage)]
 
-        ; 设置请求数据
-        data["model"] := model
-        data["messages"] := [Map("role", "system", "content", system_prompt), Map("role", "user", "content", "目标内容如下：<" . user_content . ">")]
+            json_data := JSON.stringify(data)
 
-        ; 将data数据转换为JSON格式
-        json_data := JSON.stringify(data)
-        
-        ; 构建请求头
-        http := ComObject("WinHttp.WinHttpRequest.5.1")
-        post_url := base_url . "v1/chat/completions"
-        http.Open("POST", post_url, true) ; Async=true
-        http.SetRequestHeader("Content-Type", "application/json")
-        http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
-        http.Send(json_data)
-        
-        try {
-            http.WaitForResponse(-1)
-        
-            if (http.status != 200) {
-                ; 获取错误信息
-                try {
-                    errorMessage := JSON.parse(http.responseText)["error"]["message"]
-                } catch {
-                    errorMessage := "OpenAI API Error: Status " . http.status . " - " . http.statusText
+            http := ComObject("WinHttp.WinHttpRequest.5.1")
+            post_url := OpenAI_GetChatCompletionsUrl()
+            http.Open("POST", post_url, true)
+            http.SetRequestHeader("Content-Type", "application/json")
+            http.SetRequestHeader("Authorization", "Bearer " . OpenAI_key)
+            http.Send(json_data)
+
+            try {
+                http.WaitForResponse(-1)
+
+                if (http.status != 200) {
+                    try {
+                        errorBody := JSON.parse(http.responseText)
+                        if (errorBody.Has("error") && errorBody["error"] is Map && errorBody["error"].Has("message"))
+                            errorMessage := errorBody["error"]["message"]
+                        else
+                            errorMessage := "HTTP " . http.status . " " . http.statusText
+                    } catch {
+                        errorMessage := "HTTP " . http.status . " " . http.statusText
+                    }
+                    OpenAIMsgBoxStr := "错误：" . errorMessage
+                } else {
+                    arr := http.responseBody
+                    pData := NumGet(ComObjValue(arr) + 8 + A_PtrSize, "Ptr")
+                    length := arr.MaxIndex() + 1
+                    response := StrGet(pData, length, "utf-8")
+                    responseObject := JSON.parse(response)
+
+                    try {
+                        result := responseObject["choices"][1]["message"]["content"]
+                        result := StrReplace(result, "`n", "`r`n")
+                        OpenAIMsgBoxStr := result
+                        A_Clipboard := result
+                    } catch {
+                        OpenAIMsgBoxStr := "错误：无法解析 AI 返回结果。"
+                    }
                 }
-                ; 显示错误信息到 GUI
-                OpenAIMsgBoxStr := errorMessage
+            } catch as e {
+                OpenAIMsgBoxStr := "错误：AI 请求失败：" . e.Message
             }
-            else {
-                ; 获取响应
-                arr := http.responseBody
-                pData := NumGet(ComObjValue(arr) + 8 + A_PtrSize, "Ptr")
-                length := arr.MaxIndex() + 1
-                response := StrGet(pData, length, "utf-8")
-    
-                ; 使用 JSON.Load 解析响应
-                responseObject := JSON.parse(response)
-    
-                ; 获取助手消息内容
-                ; V2 JSON object access depends on library, usually Map/Array
-                try {
-                    result := responseObject["choices"][1]["message"]["content"]
-                    result := StrReplace(result, "`n", "`r`n")
-                    
-                    OpenAIMsgBoxStr := result
-                    A_Clipboard := result ;将result数据复制到剪贴板
-                } catch {
-                    OpenAIMsgBoxStr := "Error parsing response."
-                }
-            }
-        } catch as e {
-             OpenAIMsgBoxStr := "Request Failed: " . e.Message
         }
 
-        ; 更新GUI显示
+        ; 更新 GUI 显示。
         try ControlSetText(OpenAIMsgBoxStr, openAI_transEditHwnd)
         try ControlFocus(openAI_transEditHwnd)
         SetTimer(setOpenaiActive, 50)
     }
 }
-
 
 ; 添加确认 prompt 文件选择的标签
 ConfirmPromptFile(*) {

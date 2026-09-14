@@ -48,6 +48,7 @@ loadScript=scriptDemo.js
 [QStyle]
 
 [TTranslate]
+provider=ai
 
 [Keys]
 
@@ -292,29 +293,13 @@ progressColor=0x00cc99
 ; ## +T Translation settings (Chinese <-> English)
 
 [TTranslate]
-; About Youdao API
-; The translation function is implemented by calling Youdao API.
+; Translation backend for CapsLock+F3: ai (default) or deeplx.
+; ai uses the OpenAI-compatible endpoint and model configured under [AI].
+; deeplx keeps the previous DeepLX/compatible translation endpoint as a backup.
+provider=ai
 
-; Youdao's paid version API website: https://ai.youdao.com/console/#/
-; Getting started docs about Youdao's API: https://ai.youdao.com/doc.s#guide
-
-; Translation API type, currently can only be 1
-; 0: Free version of Youdao API (no longer available, no longer provided by Youdao)
-; 1: Paid version of Youdao API (default value)
-apiType=1
-
-; Parameters for paid version Youdao application
-
-; Application ID
-appPaidID=xxx
-
-; Application key
-appPaidKey=xxx
-
-; Capslock+ could use either the free version or the paid version of the Yodao API before, to provide translation functions, now Yodao no longer provides the free version of the API,
-; only the paid version of the API can be used. The following parameters related to the free version of the API have been deprecated, please delete them if they are used in your settings file.
-; apiKey=xxx
-; keyFrom=xxx
+; Used when provider=deeplx.
+endpoint=http://127.0.0.1:1188/translate
 
 
 ;----------------------------------------------------------------;
@@ -494,7 +479,7 @@ caps_f1=keyFunc_openCpasDocs
 ; Math Board
 caps_f2=keyFunc_mathBoard
 
-; Youdao Translation
+; AI translation (set [TTranslate] provider=deeplx to use the legacy endpoint)
 caps_f3=keyFunc_translate
 
 ; Make the active window transparent

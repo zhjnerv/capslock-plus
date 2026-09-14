@@ -3,10 +3,11 @@ English | [中文](readme.md)
 ---
 
 ## Modified Introduction
-Since the original translation backend was no longer usable, I replaced it with a free DeepL-compatible flow with help from Gemini, and also deployed my own [DeepLX Powerful DeepL Translation API](https://deeplx.owo.network).
+The original Youdao/DeepLX translation backends are no longer stable. `CapsLock+F3` now uses the OpenAI-compatible AI endpoint configured under `[AI]` by default; the previous DeepLX/compatible endpoint remains available through `[TTranslate] provider=deeplx`.
 
-- I cannot provide the same configuration selection flow as the original author. The project is preconfigured to work with my self-hosted [DeepLX](https://zhjwork.online/2024/04/30/deeplx%e7%99%bd%e5%ab%96%e6%9c%8d%e5%8a%a1/) service out of the box.
-- I also updated the translation window so long paragraphs can be viewed with a scrollbar.
+- AI translation reuses the existing AI result window and directly uses the translation Prompt.
+- The legacy endpoint remains configurable through `[TTranslate] endpoint`, so it can be restored when a working endpoint is found.
+- The translation window supports scrolling for long paragraphs.
 
 **Thanks again to Google Gemini and DeepLX for making this possible.**
 
@@ -34,7 +35,7 @@ CapsLock+ turns `CapsLock` into a general-purpose productivity modifier for Wind
 - Dual independent clipboards: default mappings for `CapsLock + C/X/V` and `CapsLock + LAlt + C/X/V`
 - Qbar: search, open files, open URLs, record strings, and prefill from selected text, URLs, or Explorer selections
 - TabScript: string replacement, quick snippets, inline expression evaluation, and JavaScript-assisted calculations
-- Translation: DeepLX-based translation with automatic Chinese/English direction handling
+- Translation: AI-based translation by default, with the legacy DeepLX/compatible endpoint available through configuration
 - Window tools: binding, pinning, transparency, and jump/navigation helpers
 - Mouse tools: temporary system mouse speed switching with wheel-based adjustment
 - Math Board: a standalone calculation window
@@ -105,14 +106,15 @@ It tries the following in order:
 The JavaScript runtime comes from [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk), and can be extended through files in `loadScript/`.
 
 ### 3. Translation
-`CapsLock + F3` is implemented in [lib/lib_ydTrans.ahk](lib/lib_ydTrans.ahk).
+`CapsLock + F3` now uses the AI translation entry point in [userAHK/OpenAI.ahk](userAHK/OpenAI.ahk) by default. The previous endpoint implementation remains available in [lib/lib_ydTrans.ahk](lib/lib_ydTrans.ahk).
 
-In the current repository, translation works like this:
+The current behavior is:
 
-- it uses a DeepLX endpoint instead of the old Youdao-free-api flow
-- it translates mostly-Chinese text to English, and other text to Chinese
-- it copies the primary translation result to the clipboard
-- it shows the result in a scrollable standalone window
+- `[TTranslate] provider=ai` uses the OpenAI-compatible `base_url`, `model`, and `OpenAI_key` from `[AI]`
+- it uses the translation Prompt directly without opening the `CapsLock + F8` Prompt selection dialog
+- the translation Prompt determines the direction and the result is copied to the clipboard
+- it reuses the AI extension's scrollable result window
+- `[TTranslate] provider=deeplx` switches back to the legacy DeepLX/compatible endpoint configured by `endpoint`
 
 ### 4. Window Controls
 - `CapsLock + F6`: toggle always-on-top for the active window
@@ -144,7 +146,7 @@ The current code recognizes these main sections:
 | `[QWeb]` | Qbar web shortcuts |
 | `[TabHotString]` | TabScript string replacements |
 | `[QStyle]` | Qbar appearance |
-| `[TTranslate]` | Translation settings; the current code mainly uses `endpoint` |
+| `[TTranslate]` | F3 translation backend; `provider=ai` uses the AI model and `provider=deeplx` uses the legacy endpoint |
 | `[AI]` | OpenAI extension settings |
 | `[Obsidian]` | Obsidian task append settings |
 | `[Keys]` | Hotkey mappings |
@@ -157,6 +159,8 @@ The current code already supports `AI` and `Obsidian`, and the terminal choice c
 terminalProgram=terminal
 
 [TTranslate]
+; AI is the default for F3; set deeplx to use the legacy endpoint
+provider=ai
 endpoint=http://127.0.0.1:1188/translate
 
 [AI]
