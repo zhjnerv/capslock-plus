@@ -3,7 +3,7 @@
 ---
 
 ## 修改简介
-原有的有道/DeepLX 翻译接口已经不稳定，当前 `CapsLock+F3` 默认改为使用 `[AI]` 中配置的 OpenAI-compatible 大模型接口；旧版 DeepLX/兼容接口仍然保留，可通过 `[TTranslate] provider=deeplx` 切换。
+原有的有道/DeepLX 翻译接口已经不稳定，当前 `CapsLock+F3` 默认改为使用 `[TTranslate]` 中独立配置的 OpenAI-compatible 大模型接口；未填写时会逐项回退到 `[AI]`，旧版 DeepLX/兼容接口仍然保留，可通过 `[TTranslate] provider=deeplx` 切换。
 
 - 大模型翻译复用现有 AI 结果窗口，并直接使用翻译 Prompt。
 - 旧版接口地址仍由 `[TTranslate] endpoint` 配置，便于以后找到可用端口时恢复使用。
@@ -111,7 +111,8 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 
 当前行为是：
 
-- 默认读取 `[TTranslate] provider=ai`，使用 `[AI]` 中的 OpenAI-compatible `base_url`、`model` 和 `OpenAI_key`
+- 默认读取 `[TTranslate] provider=ai`，优先使用 `[TTranslate]` 中的 `base_url`、`model`、`OpenAI_key`，与 `CapsLock + F8` 的 `[AI]` 配置相互独立
+- `[TTranslate]` 中某一项留空时，该项才回退使用 `[AI]` 的同名配置，旧配置无需修改即可继续使用
 - 直接使用翻译 Prompt，不弹出 `CapsLock + F8` 的 Prompt 选择框
 - 由翻译 Prompt 判断语言方向，并将结果自动复制到剪贴板
 - 复用 AI 扩展的可滚动结果窗口
@@ -147,7 +148,7 @@ JavaScript 引擎由 [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk) 提供，也支持
 | `[QWeb]` | Qbar 快速打开网页 |
 | `[TabHotString]` | TabScript 字符串替换 |
 | `[QStyle]` | Qbar 外观样式 |
-| `[TTranslate]` | F3 翻译后端设置；`provider=ai` 使用大模型，`provider=deeplx` 使用旧接口 |
+| `[TTranslate]` | F3 翻译后端设置；`provider=ai` 时使用本段独立的大模型接口配置（缺项回退 `[AI]`），`provider=deeplx` 使用旧接口 |
 | `[AI]` | OpenAI 扩展设置 |
 | `[Obsidian]` | Obsidian 任务追加扩展设置 |
 | `[Keys]` | 热键映射 |
@@ -162,6 +163,15 @@ terminalProgram=terminal
 [TTranslate]
 ; F3 默认使用大模型；改为 deeplx 可切回旧接口
 provider=ai
+
+; F3 翻译专用接口，与 F8 的 [AI] 相互独立；留空时回退到 [AI] 的同名配置
+OpenAI_key=sk-xxxx
+base_url=https://api.openai.com/
+model=gpt-4o-mini
+temperature=0.7
+top_p=1
+
+; provider=deeplx 时使用
 endpoint=http://127.0.0.1:1188/translate
 
 [AI]

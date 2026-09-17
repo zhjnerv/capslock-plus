@@ -50,6 +50,11 @@ loadScript=scriptDemo.js
 [TTranslate]
 provider=ai
 
+; Dedicated F3 translation endpoint, independent from [AI]; blank keys fall back to [AI].
+;OpenAI_key=sk-xxxx
+;base_url=https://api.openai.com/
+;model=gpt-4o-mini
+
 [Keys]
 
 )
@@ -294,9 +299,17 @@ progressColor=0x00cc99
 
 [TTranslate]
 ; Translation backend for CapsLock+F3: ai (default) or deeplx.
-; ai uses the OpenAI-compatible endpoint and model configured under [AI].
+; ai prefers the OpenAI-compatible endpoint configured here, then falls back per-key to [AI].
 ; deeplx keeps the previous DeepLX/compatible translation endpoint as a backup.
 provider=ai
+
+; Dedicated F3 translation endpoint, independent from [AI] used by CapsLock+F8.
+; A blank key here falls back to the same key under [AI].
+;OpenAI_key=sk-xxxx
+;base_url=https://api.openai.com/
+;model=gpt-4o-mini
+;temperature=0.7
+;top_p=1
 
 ; Used when provider=deeplx.
 endpoint=http://127.0.0.1:1188/translate

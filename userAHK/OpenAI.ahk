@@ -6,6 +6,8 @@ FileEncoding("UTF-8")
 
 ; Globals for OpenAI
 global OpenAI_key := "", base_url := "", model := "", temperature := "", top_p := ""
+; 当前生效的配置来源段名：AI（CapsLock+F8 扩展）或 TTranslate（CapsLock+F3 翻译）
+global openAIConfigSection := "AI"
 global openaiGuiHwnd := "", openAI_transEditHwnd := "", openAI_transEdit := ""
 global system_prompt := "", user_content := "", promptSelectionDone := 0
 global selectedPromptFileName := "", selectedPromptIndex := 1
@@ -25,29 +27,47 @@ setOpenaiActive(*) {
         WinActivate("ahk_id " . openaiGuiHwnd)
 }
 
-OpenAI_LoadConfig() {
-    global OpenAI_key, base_url, model, temperature, top_p, CLSets
-
-    OpenAI_key := ""
-    base_url := ""
-    model := "gpt-3.5-turbo"
-    temperature := 0.7
-    top_p := 1
-
-    if (CLSets.Has("AI")) {
-        OpenAI_key  := CLSets["AI"].Has("OpenAI_key") ? CLSets["AI"]["OpenAI_key"] : ""
-        base_url    := CLSets["AI"].Has("base_url") ? CLSets["AI"]["base_url"] : ""
-        model       := CLSets["AI"].Has("model") ? CLSets["AI"]["model"] : "gpt-3.5-turbo"
-        temperature := CLSets["AI"].Has("temperature") ? CLSets["AI"]["temperature"] : 0.7
-        top_p       := CLSets["AI"].Has("top_p") ? CLSets["AI"]["top_p"] : 1
+; 读取配置段中的单个键值，主段未设置时回退到 fallbackSection（可为空）。
+OpenAI_ReadSetting(primarySection, fallbackSection, key, defaultValue) {
+    if (IsObject(primarySection) && primarySection.Has(key)) {
+        value := Trim(primarySection[key])
+        if (value != "")
+            return value
     }
+    if (IsObject(fallbackSection) && fallbackSection.Has(key)) {
+        value := Trim(fallbackSection[key])
+        if (value != "")
+            return value
+    }
+    return defaultValue
+}
+
+; 载入接口配置。
+; configSection="AI"：CapsLock+F8 扩展使用 [AI]。
+; configSection="TTranslate"：CapsLock+F3 翻译优先使用 [TTranslate] 自带的接口配置，
+; 未单独设置时逐项回退到 [AI]，保证旧配置仍可用；两者互不影响。
+OpenAI_LoadConfig(configSection := "AI") {
+    global OpenAI_key, base_url, model, temperature, top_p, CLSets, openAIConfigSection
+
+    openAIConfigSection := configSection
+    aiSec := CLSets.Has("AI") ? CLSets["AI"] : ""
+    tTranslateSec := CLSets.Has("TTranslate") ? CLSets["TTranslate"] : ""
+
+    primarySec := (configSection = "TTranslate") ? tTranslateSec : aiSec
+    fallbackSec := (configSection = "TTranslate") ? aiSec : ""
+
+    OpenAI_key  := OpenAI_ReadSetting(primarySec, fallbackSec, "OpenAI_key", "")
+    base_url    := OpenAI_ReadSetting(primarySec, fallbackSec, "base_url", "")
+    model       := OpenAI_ReadSetting(primarySec, fallbackSec, "model", "gpt-3.5-turbo")
+    temperature := OpenAI_ReadSetting(primarySec, fallbackSec, "temperature", 0.7)
+    top_p       := OpenAI_ReadSetting(primarySec, fallbackSec, "top_p", 1)
 }
 
 OpenAI_Cap(oo)
 {
     global user_content
 
-    OpenAI_LoadConfig()
+    OpenAI_LoadConfig("AI")
 
     ; F8 保留原有行为：压缩空白后进入 Prompt 选择流程。
     oo := RegExReplace(oo, "\s+", " ")
@@ -60,7 +80,8 @@ OpenAI_Cap(oo)
 OpenAI_Translate(translationText) {
     global user_content, selectedPromptFileName
 
-    OpenAI_LoadConfig()
+    ; F3 使用 [TTranslate] 的独立接口配置，不再与 F8 的 [AI] 共用一套。
+    OpenAI_LoadConfig("TTranslate")
     user_content := Trim(translationText)
     selectedPromptFileName := "translate_prompt.txt"
     CallOpenAIAPI("translate_prompt.txt", "正在翻译……", false)
@@ -277,7 +298,7 @@ OpenAI_GetChatCompletionsUrl() {
 ; F3 翻译则直接发送原文，避免翻译 Prompt 被额外标签干扰。
 CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := true)
 {
-    global system_prompt, user_content, selectedPromptFileName
+    global system_prompt, user_content, selectedPromptFileName, openAIConfigSection
     global openaiGuiHwnd, openAI_transEditHwnd, OpenAIResGui
 
     promptName := promptFileName != "" ? promptFileName : selectedPromptFileName
@@ -359,10 +380,12 @@ CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := tru
     ; 没有输入文本时仅打开结果窗口，供用户手动输入。
     if(user_content)
     {
+        configLabel := (openAIConfigSection = "TTranslate") ? "[TTranslate]" : "[AI]"
+        configHint := (openAIConfigSection = "TTranslate") ? "（[TTranslate] 未设置时会回退到 [AI]）" : ""
         if (Trim(OpenAI_key) = "") {
-            OpenAIMsgBoxStr := "错误：未配置 [AI] OpenAI_key。"
+            OpenAIMsgBoxStr := "错误：未配置 " . configLabel . " OpenAI_key" . configHint . "。"
         } else if (Trim(base_url) = "") {
-            OpenAIMsgBoxStr := "错误：未配置 [AI] base_url。"
+            OpenAIMsgBoxStr := "错误：未配置 " . configLabel . " base_url" . configHint . "。"
         } else {
             ; 接口采用 OpenAI-compatible Chat Completions 格式。
             data := Map()

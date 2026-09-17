@@ -3,7 +3,7 @@ English | [中文](readme.md)
 ---
 
 ## Modified Introduction
-The original Youdao/DeepLX translation backends are no longer stable. `CapsLock+F3` now uses the OpenAI-compatible AI endpoint configured under `[AI]` by default; the previous DeepLX/compatible endpoint remains available through `[TTranslate] provider=deeplx`.
+The original Youdao/DeepLX translation backends are no longer stable. `CapsLock+F3` now uses the OpenAI-compatible endpoint configured under `[TTranslate]` by default, falling back per-key to `[AI]` when a value is left blank; the previous DeepLX/compatible endpoint remains available through `[TTranslate] provider=deeplx`.
 
 - AI translation reuses the existing AI result window and directly uses the translation Prompt.
 - The legacy endpoint remains configurable through `[TTranslate] endpoint`, so it can be restored when a working endpoint is found.
@@ -110,7 +110,8 @@ The JavaScript runtime comes from [lib/lib_jsEval.ahk](lib/lib_jsEval.ahk), and 
 
 The current behavior is:
 
-- `[TTranslate] provider=ai` uses the OpenAI-compatible `base_url`, `model`, and `OpenAI_key` from `[AI]`
+- `[TTranslate] provider=ai` prefers its own `base_url`, `model`, and `OpenAI_key`, independent from `[AI]` used by `CapsLock + F8`
+- a blank key under `[TTranslate]` falls back to the same key under `[AI]`, so existing setups keep working
 - it uses the translation Prompt directly without opening the `CapsLock + F8` Prompt selection dialog
 - the translation Prompt determines the direction and the result is copied to the clipboard
 - it reuses the AI extension's scrollable result window
@@ -146,7 +147,7 @@ The current code recognizes these main sections:
 | `[QWeb]` | Qbar web shortcuts |
 | `[TabHotString]` | TabScript string replacements |
 | `[QStyle]` | Qbar appearance |
-| `[TTranslate]` | F3 translation backend; `provider=ai` uses the AI model and `provider=deeplx` uses the legacy endpoint |
+| `[TTranslate]` | F3 translation backend; `provider=ai` uses its own AI endpoint settings (blank keys fall back to `[AI]`), `provider=deeplx` uses the legacy endpoint |
 | `[AI]` | OpenAI extension settings |
 | `[Obsidian]` | Obsidian task append settings |
 | `[Keys]` | Hotkey mappings |
@@ -161,6 +162,15 @@ terminalProgram=terminal
 [TTranslate]
 ; AI is the default for F3; set deeplx to use the legacy endpoint
 provider=ai
+
+; Dedicated F3 endpoint, independent from [AI]; blank keys fall back to [AI]
+OpenAI_key=sk-xxxx
+base_url=https://api.openai.com/
+model=gpt-4o-mini
+temperature=0.7
+top_p=1
+
+; Used when provider=deeplx
 endpoint=http://127.0.0.1:1188/translate
 
 [AI]

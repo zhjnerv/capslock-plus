@@ -50,6 +50,11 @@
         [TTranslate]
         provider=ai
         
+        ; F3 翻译专用接口，与 F8 的 [AI] 相互独立；留空时回退到 [AI]。
+        ;OpenAI_key=sk-xxxx
+        ;base_url=https://api.openai.com/
+        ;model=gpt-4o-mini
+
         [Keys]
     )"
     
@@ -269,9 +274,17 @@
         
         [TTranslate]
         ; CapsLock+F3 的翻译后端：ai（默认）或 deeplx。
-        ; ai：使用 [AI] 中的 OpenAI-compatible 接口和模型；deeplx：保留旧版翻译接口。
+        ; ai：优先使用本段的 OpenAI-compatible 接口配置，未设置时逐项回退到 [AI]；deeplx：保留旧版翻译接口。
         provider=ai
         
+        ; F3 翻译专用接口，与 CapsLock+F8 的 [AI] 相互独立。
+        ; 某一项留空时，该项才回退使用 [AI] 中的同名配置。
+        ;OpenAI_key=sk-xxxx
+        ;base_url=https://api.openai.com/
+        ;model=gpt-4o-mini
+        ;temperature=0.7
+        ;top_p=1
+
         ; provider=deeplx 时使用的 DeepLX/兼容接口地址。
         endpoint=http://127.0.0.1:1188/translate
         
