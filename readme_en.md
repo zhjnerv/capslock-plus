@@ -284,13 +284,13 @@ caps_q=keyFunc_listary()
 
 | File | Description |
 |:---|:---|
-| [prompt/prompt.txt](prompt/prompt.txt) | Default prompt |
-| [prompt/rewrite_prompt.txt](prompt/rewrite_prompt.txt) | Rewrite prompt |
-| [prompt/translate_prompt.txt](prompt/translate_prompt.txt) | Translation prompt |
-| [prompt/polish_prompt.txt](prompt/polish_prompt.txt) | Polishing prompt |
-| [prompt/prompt-1.txt](prompt/prompt-1.txt) | Historical prompt file |
-| [prompt/prompt-2.txt](prompt/prompt-2.txt) | Historical prompt file |
-| [prompt/prompt-3.txt](prompt/prompt-3.txt) | Historical prompt file |
+| [prompt/prompt.md](prompt/prompt.md) | Default prompt |
+| [prompt/rewrite_prompt.md](prompt/rewrite_prompt.md) | Rewrite prompt |
+| [prompt/translate_prompt.md](prompt/translate_prompt.md) | Translation prompt |
+| [prompt/polish_prompt.md](prompt/polish_prompt.md) | Polishing prompt |
+| [prompt/prompt-1.md](prompt/prompt-1.md) | Historical prompt file |
+| [prompt/prompt-2.md](prompt/prompt-2.md) | Historical prompt file |
+| [prompt/prompt-3.md](prompt/prompt-3.md) | Historical prompt file |
 
 ### `loadScript/`
 

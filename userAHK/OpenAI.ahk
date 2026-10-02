@@ -83,8 +83,8 @@ OpenAI_Translate(translationText) {
     ; F3 使用 [TTranslate] 的独立接口配置，不再与 F8 的 [AI] 共用一套。
     OpenAI_LoadConfig("TTranslate")
     user_content := Trim(translationText)
-    selectedPromptFileName := "translate_prompt.txt"
-    CallOpenAIAPI("translate_prompt.txt", "正在翻译……", false)
+    selectedPromptFileName := "translate_prompt.md"
+    CallOpenAIAPI("translate_prompt.md", "正在翻译……", false)
 }
 
 ; 翻译 Prompt 文件不存在时的内置兜底文本，避免新安装环境无法使用 F3。
@@ -112,7 +112,7 @@ ShowPromptSelection()
     gsHwnd := OpenAIgs.Hwnd
     CLTheme_ApplyWindow(OpenAIgs, gsHwnd)
     selectedPromptIndex := 1
-    selectedPromptFileName := "prompt.txt"
+    selectedPromptFileName := "prompt.md"
     promptSelectionDone := 0
     OpenAIPromptHotkeyHwnd := gsHwnd
     
@@ -130,11 +130,11 @@ ShowPromptSelection()
     optionY := margin + fixDpi(68)
     optionW := fixDpi(360)
     optionH := fixDpi(24)
-    OpenAI_AddPromptOption(1, "1. 默认 (prompt.txt)", margin, optionY, optionW, optionH)
-    OpenAI_AddPromptOption(2, "2. 改写 (rewrite_prompt.txt)", margin, optionY + optionH, optionW, optionH)
-    OpenAI_AddPromptOption(3, "3. 翻译 (translate_prompt.txt)", margin, optionY + optionH*2, optionW, optionH)
-    OpenAI_AddPromptOption(4, "4. 总结 (summarize_prompt.txt)", margin, optionY + optionH*3, optionW, optionH)
-    OpenAI_AddPromptOption(5, "5. 润色 (polish_prompt.txt)", margin, optionY + optionH*4, optionW, optionH)
+    OpenAI_AddPromptOption(1, "1. 默认 (prompt.md)", margin, optionY, optionW, optionH)
+    OpenAI_AddPromptOption(2, "2. 改写 (rewrite_prompt.md)", margin, optionY + optionH, optionW, optionH)
+    OpenAI_AddPromptOption(3, "3. 翻译 (translate_prompt.md)", margin, optionY + optionH*2, optionW, optionH)
+    OpenAI_AddPromptOption(4, "4. 总结 (summarize_prompt.md)", margin, optionY + optionH*3, optionW, optionH)
+    OpenAI_AddPromptOption(5, "5. 润色 (polish_prompt.md)", margin, optionY + optionH*4, optionW, optionH)
     
     ; 原生按钮不易完整换肤，保留隐藏默认按钮处理 Enter，用文本按钮呈现主题风格。
     OpenAIgs.Add("Button", "x0 y0 w0 h0 Default Hidden", "确定").OnEvent("Click", ConfirmPromptFile)
@@ -227,17 +227,17 @@ DisablePromptHotkeys(hwnd) {
 OpenAI_GetPromptFileName(index) {
     switch index {
         case 1:
-            return "prompt.txt"
+            return "prompt.md"
         case 2:
-            return "rewrite_prompt.txt"
+            return "rewrite_prompt.md"
         case 3:
-            return "translate_prompt.txt"
+            return "translate_prompt.md"
         case 4:
-            return "summarize_prompt.txt"
+            return "summarize_prompt.md"
         case 5:
-            return "polish_prompt.txt"
+            return "polish_prompt.md"
         default:
-            return "prompt.txt"
+            return "prompt.md"
     }
 }
 
@@ -303,7 +303,7 @@ CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := tru
 
     promptName := promptFileName != "" ? promptFileName : selectedPromptFileName
     if (promptName = "")
-        promptName := "prompt.txt"
+        promptName := "prompt.md"
 
     ; 读取选定的 Prompt 文件；翻译 Prompt 缺失时使用内置文本。
     promptPath := A_WorkingDir . "\userAHK\prompt\" . promptName
@@ -313,14 +313,14 @@ CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := tru
     system_prompt := ""
     try system_prompt := FileRead(promptPath)
 
-    if (system_prompt = "" && promptName = "translate_prompt.txt")
+    if (system_prompt = "" && promptName = "translate_prompt.md")
         system_prompt := OpenAI_DefaultTranslationPrompt()
 
     ; F8 的旧 Prompt 缺失时仍使用原有默认 Prompt。
     if (system_prompt = "") {
-        try system_prompt := FileRead(A_WorkingDir . "\userAHK\prompt\prompt.txt")
+        try system_prompt := FileRead(A_WorkingDir . "\userAHK\prompt\prompt.md")
         if (system_prompt = "") {
-            try system_prompt := FileRead(A_WorkingDir . "\prompt\prompt.txt")
+            try system_prompt := FileRead(A_WorkingDir . "\prompt\prompt.md")
         }
     }
 
@@ -459,7 +459,7 @@ ConfirmPromptFileAndDisableHotkeys(*) {
 ; 添加取消选择的标签
 CancelPromptFile(*) {
     global selectedPromptFileName
-    selectedPromptFileName := "prompt.txt"  ; 使用默认值
+    selectedPromptFileName := "prompt.md"  ; 使用默认值
     OpenAI_ClosePromptSelection(false)
 }
 

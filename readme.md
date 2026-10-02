@@ -285,13 +285,13 @@ caps_q=keyFunc_listary()
 
 | 文件 | 说明 |
 |:---|:---|
-| [prompt/prompt.txt](prompt/prompt.txt) | 默认 Prompt |
-| [prompt/rewrite_prompt.txt](prompt/rewrite_prompt.txt) | 改写 Prompt |
-| [prompt/translate_prompt.txt](prompt/translate_prompt.txt) | 翻译 Prompt |
-| [prompt/polish_prompt.txt](prompt/polish_prompt.txt) | 润色 Prompt |
-| [prompt/prompt-1.txt](prompt/prompt-1.txt) | 历史 Prompt 文件 |
-| [prompt/prompt-2.txt](prompt/prompt-2.txt) | 历史 Prompt 文件 |
-| [prompt/prompt-3.txt](prompt/prompt-3.txt) | 历史 Prompt 文件 |
+| [prompt/prompt.md](prompt/prompt.md) | 默认 Prompt |
+| [prompt/rewrite_prompt.md](prompt/rewrite_prompt.md) | 改写 Prompt |
+| [prompt/translate_prompt.md](prompt/translate_prompt.md) | 翻译 Prompt |
+| [prompt/polish_prompt.md](prompt/polish_prompt.md) | 润色 Prompt |
+| [prompt/prompt-1.md](prompt/prompt-1.md) | 历史 Prompt 文件 |
+| [prompt/prompt-2.md](prompt/prompt-2.md) | 历史 Prompt 文件 |
+| [prompt/prompt-3.md](prompt/prompt-3.md) | 历史 Prompt 文件 |
 
 ### `loadScript/`
 
