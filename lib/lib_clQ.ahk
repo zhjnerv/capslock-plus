@@ -15,6 +15,7 @@ global ImageList0 := ""
 global ImageList1 := ""
 global doNothingWhenChanged := 0
 global QSelectedRow := 0
+global QBarEnterPending := false
 
 ; 窗口外圈 = 四周 1px 亮色描边(crtRain)。
 ; 描边整体内缩 1px,确保 SetWindowRgn 圆角裁剪后四边完整可见;内容再内缩 1px 露出描边底色。
@@ -168,7 +169,7 @@ initQGui() {
     ; When user presses Enter:
     ; 1. If IME is open, IME consumes Enter.
     ; 2. If IME is closed, Enter triggers this default button.
-    QGui.Add("Button", "x0 y0 w0 h0 Default Hidden").OnEvent("Click", QBar_Enter)
+    QGui.Add("Button", "x0 y0 w0 h0 Default Hidden").OnEvent("Click", QBar_QueueEnter)
 
     QGui.OnEvent("Close", QGuiClose)
 
@@ -416,7 +417,7 @@ QBar_ListDoubleClick(ctrl, row, *) {
         return
 
     QBar_SetSelected(row)
-    QBar_Enter()
+    QBar_QueueEnter()
 }
 
 scanStarMenu() {
@@ -677,6 +678,24 @@ QBar_Down(*) {
     QBar_MoveSelection(1)
 }
 
+; 将回车提交动作放到当前按键消息处理完成后执行。
+; 用户快速输入并立即回车时，Edit 控件可能尚未把最后一个字符
+; 完成到 Value，直接在 Default Button 的 Click 事件中读取会少一位。
+QBar_QueueEnter(*) {
+    global QBarEnterPending
+    if (QBarEnterPending)
+        return
+
+    QBarEnterPending := true
+    SetTimer(QBar_EnterDeferred, -1)
+}
+
+QBar_EnterDeferred(*) {
+    global QBarEnterPending
+    QBarEnterPending := false
+    QBar_Enter()
+}
+
 QBar_Enter(*) {
     global QGui, QLV, QEdit, CLSets, starMenuObj, QSelectedRow
 
@@ -812,12 +831,16 @@ QBar_Enter(*) {
 }
 
 QBar_Close(*) {
-    global QGui
+    global QGui, QBarEnterPending
+    SetTimer(QBar_EnterDeferred, 0)
+    QBarEnterPending := false
     QGui.Hide()
 }
 
 QGuiClose(*) {
-    global QGui
+    global QGui, QBarEnterPending
+    SetTimer(QBar_EnterDeferred, 0)
+    QBarEnterPending := false
     QGui.Hide()
 }
 
