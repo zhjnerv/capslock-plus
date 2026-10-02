@@ -36,44 +36,82 @@ CLTheme_Color(name) {
 CLTheme_Font(role := "ui") {
     if (role = "mono")
         return "Cascadia Mono"
-    if (role = "qbar")
-        return CLTheme_FirstAvailableFont(["Noto Sans SC", "DengXian", "Microsoft YaHei UI"])
-    return CLTheme_Font("qbar")
+    ; 只返回 GDI 能真正解析到的字体族。不能把 "Noto Sans CJK SC" 的安装记录
+    ; 当成 "Noto Sans SC" 可用，否则 SetFont 会落到宋体，中文看起来像被压扁。
+    return CLTheme_FirstAvailableFont([
+        "Noto Sans CJK SC",
+        "Noto Sans SC",
+        "等线",
+        "DengXian",
+        "Microsoft YaHei UI"
+    ])
 }
 
 CLTheme_FirstAvailableFont(fontNames) {
     for fontName in fontNames {
-        if (CLTheme_FontInstalled(fontName))
-            return fontName
+        actual := CLTheme_GdiFontFace(fontName)
+        if (CLTheme_FontFaceMatches(fontName, actual))
+            return actual
     }
     return fontNames[fontNames.Length]
 }
 
 CLTheme_FontInstalled(fontName) {
-    static fontRegistryNames := Map(
-        "Noto Sans SC", ["Noto Sans SC (TrueType)", "Noto Sans CJK SC (TrueType)"],
-        "DengXian", ["DengXian (TrueType)", "DengXian Light (TrueType)"],
-        "Microsoft YaHei UI", ["Microsoft YaHei & Microsoft YaHei UI (TrueType)"]
-    )
+    return CLTheme_FontFaceMatches(fontName, CLTheme_GdiFontFace(fontName))
+}
 
-    if (!fontRegistryNames.Has(fontName))
+CLTheme_FontFaceMatches(requested, actual) {
+    if (requested = "" || actual = "")
+        return false
+    if (StrLower(Trim(requested)) = StrLower(Trim(actual)))
         return true
 
-    registryKeys := [
-        "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
-        "HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-    ]
+    ; 等线的英文字族名是 DengXian，GDI 通常返回中文名。
+    requestedNorm := StrLower(Trim(requested))
+    actualNorm := StrLower(Trim(actual))
+    if ((requestedNorm = "dengxian" && actualNorm = "等线")
+        || (requestedNorm = "等线" && actualNorm = "dengxian"))
+        return true
+    return false
+}
 
-    for keyPath in registryKeys {
-        for valueName in fontRegistryNames[fontName] {
-            try {
-                if (RegRead(keyPath, valueName) != "")
-                    return true
-            }
+CLTheme_GdiFontFace(fontName) {
+    static cache := Map()
+    if (cache.Has(fontName))
+        return cache[fontName]
+
+    actual := ""
+    hfont := DllCall("gdi32\CreateFontW"
+        , "int", -12
+        , "int", 0
+        , "int", 0
+        , "int", 0
+        , "int", 400
+        , "uint", 0
+        , "uint", 0
+        , "uint", 0
+        , "uint", 1
+        , "uint", 0
+        , "uint", 0
+        , "uint", 5
+        , "uint", 0
+        , "str", fontName
+        , "ptr")
+    if (hfont) {
+        hdc := DllCall("gdi32\CreateCompatibleDC", "ptr", 0, "ptr")
+        if (hdc) {
+            old := DllCall("gdi32\SelectObject", "ptr", hdc, "ptr", hfont, "ptr")
+            buf := Buffer(128, 0)
+            DllCall("gdi32\GetTextFaceW", "ptr", hdc, "int", 64, "ptr", buf)
+            actual := StrGet(buf, "UTF-16")
+            DllCall("gdi32\SelectObject", "ptr", hdc, "ptr", old, "ptr")
+            DllCall("gdi32\DeleteDC", "ptr", hdc)
         }
+        DllCall("gdi32\DeleteObject", "ptr", hfont)
     }
 
-    return false
+    cache[fontName] := actual
+    return actual
 }
 
 CLTheme_FontOptions(size := 11, colorName := "text", extra := "") {
