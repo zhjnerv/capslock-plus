@@ -65,11 +65,11 @@ ydTranslate(ss)
         }
         else
         {
-            transGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", IsSet(lang_yd_name) ? lang_yd_name : "Translation")
+            transGui := Gui("+AlwaysOnTop -Border +Caption +Resize +SysMenu -ToolWindow +LastFound", IsSet(lang_yd_name) ? lang_yd_name : "Translation")
             transGuiHwnd := transGui.Hwnd
             
             if (HasProp(transGui, "Opt")) ; Check if object has method/prop to avoid crash if something is weird
-                transGui.Opt("-Caption +AlwaysOnTop +ToolWindow +LastFound")
+                transGui.Opt("+AlwaysOnTop -Border +Caption +Resize +SysMenu -ToolWindow +LastFound")
 
             CLTheme_ApplyWindow(transGui, transGuiHwnd)
 

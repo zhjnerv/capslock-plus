@@ -339,7 +339,7 @@ CallOpenAIAPI(promptFileName := "", processingText := "", wrapUserContent := tru
     }
     else
     {
-        OpenAIResGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "openai修饰")
+        OpenAIResGui := Gui("+AlwaysOnTop -Border +Caption +Resize +SysMenu -ToolWindow +LastFound", "openai修饰")
         openaiGuiHwnd := OpenAIResGui.Hwnd
 
         CLTheme_ApplyWindow(OpenAIResGui, openaiGuiHwnd)
