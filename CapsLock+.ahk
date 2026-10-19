@@ -215,9 +215,6 @@ keyDispatcher(ThisHotkey) {
     SetTimer(changeMouseSpeed, 50) 
     
     KeyWait("CapsLock")
-    
-    if (IsSet(winTapedX) && winTapedX != -1)
-        try winsSort(winTapedX)
         
     clState := 0
     SetTimer(changeMouseSpeed, 0)

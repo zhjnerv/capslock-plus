@@ -9,7 +9,6 @@ Loop 20 {
 }
 tapTimes["btn"] := -1
 
-global winTapedX := -1 ; Used to determine which key was just used for switching
 global lastActiveWinId := 0
 global gettingWinInfo := 0
 global winsInfosRecorderPath := "CapsLock+winsInfosRecorder.ini"
@@ -202,7 +201,7 @@ getWinInfo(btnx, bindType) {
 }
 
 activateWinAction(btnx) {
-  global winsInfos, winsInfosRecorderPath, gettingWinInfo, lastActiveWinId, winTapedX
+  global winsInfos, winsInfosRecorderPath, gettingWinInfo, lastActiveWinId
 
   if (gettingWinInfo)
     doGetWinInfo()
@@ -263,7 +262,6 @@ activateWinAction(btnx) {
   }
   else if (bindType == 2) ; Group
   {
-    winTapedX := btnx
 
     ; Remove closed windows
     i := infosGx["id"].Length
@@ -315,22 +313,37 @@ activateWinAction(btnx) {
   }
   else if (bindType == 3) ; App Group
   {
-    winTapedX := btnx
     tempClass := infosGx["class"][1]
     tempExe := infosGx["exe"][1]
 
-    ; Refresh List
+    ; 清掉已关闭的窗口
+    i := infosGx["id"].Length
+    while (i > 0) {
+      if !WinExist("ahk_id " . infosGx["id"][i]) {
+        infosGx["id"].RemoveAt(i)
+      }
+      i--
+    }
+
+    ; 只追加新开的窗口，保留原有顺序；若按 Z 序重建，会导致永远只在最近两个窗口间切换
     ids := WinGetList("ahk_class " . tempClass . " ahk_exe " . tempExe)
-    if (ids.Length == 0) {
+    for newId in ids {
+      isExist := false
+      for existingId in infosGx["id"] {
+        if (existingId == newId) {
+          isExist := true
+          break
+        }
+      }
+      if (!isExist)
+        infosGx["id"].Push(newId)
+    }
+
+    if (infosGx["id"].Length == 0) {
       if FileExist(tempExe) {
         Run(tempExe)
       }
       return
-    }
-
-    infosGx["id"] := []
-    Loop ids.Length {
-      infosGx["id"].Push(ids[A_Index])
     }
 
     ; Cycle Logic (Same as Type 2 basically)
@@ -354,25 +367,7 @@ activateWinAction(btnx) {
   }
 }
 
-winsSort(btnx) {
-  global winsInfos
-  if (!winsInfos.Has(btnx))
-    return
 
-  infosGx := winsInfos[btnx]
-  actWinId := WinExist("A")
-
-  if (infosGx.Has("id") && infosGx["id"].Length > 0) {
-    Loop infosGx["id"].Length {
-      if (infosGx["id"][A_Index] == actWinId) {
-        val := infosGx["id"].RemoveAt(A_Index)
-        infosGx["id"].InsertAt(1, val)
-        break
-      }
-    }
-  }
-  global winTapedX := -1
-}
 
 ; Function to handle key taps
 tapTimesFunc(btnx) {
