@@ -1,4 +1,4 @@
-﻿; lib_clQ.ahk - V2 Refactor
+; lib_clQ.ahk - V2 Refactor
 ; Q-Bar Search & Run Module
 
 global QGui := ""
@@ -24,12 +24,15 @@ QBar_FramePadding() {
 }
 
 CLq() {
-    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, needInitQ, guiW, editH, margin, QSelectedRow
+    global QGui, QGuiHwnd, QEdit, QLV, QLV_Hwnd, needInitQ, guiW, editH, margin, QSelectedRow, doNothingWhenChanged
 
     if (needInitQ) {
         initQGui()
         needInitQ := 0
     }
+
+    ; 每次重新打开时恢复输入变更回调，避免上次提交后的抑制状态影响本次搜索。
+    doNothingWhenChanged := false
 
     selText := Explorer_GetSelection()
     if (selText == "")
@@ -697,7 +700,7 @@ QBar_EnterDeferred(*) {
 }
 
 QBar_Enter(*) {
-    global QGui, QLV, QEdit, CLSets, starMenuObj, QSelectedRow
+    global QGui, QLV, QEdit, CLSets, starMenuObj, QSelectedRow, doNothingWhenChanged
 
     row := QSelectedRow
     if (row <= 0 || row > QLV.GetCount())
@@ -706,6 +709,11 @@ QBar_Enter(*) {
     inputVal := QEdit.Value
     if (inputVal == "")
         return
+
+    ; 提交后立即隐藏 Qbar，并抑制可能仍在排队的输入变更回调，
+    ; 避免外部程序启动或事件重入时窗口被 doWhenChanged() 再次显示。
+    doNothingWhenChanged := true
+    QGui.Hide()
 
     ; --- 1. Execute Selected Item ---
     if (row > 0) {
@@ -825,22 +833,21 @@ QBar_Enter(*) {
             try Run(target)
         }
     }
-
-
-    QGui.Hide()
 }
 
 QBar_Close(*) {
-    global QGui, QBarEnterPending
+    global QGui, QBarEnterPending, doNothingWhenChanged
     SetTimer(QBar_EnterDeferred, 0)
     QBarEnterPending := false
+    doNothingWhenChanged := true
     QGui.Hide()
 }
 
 QGuiClose(*) {
-    global QGui, QBarEnterPending
+    global QGui, QBarEnterPending, doNothingWhenChanged
     SetTimer(QBar_EnterDeferred, 0)
     QBarEnterPending := false
+    doNothingWhenChanged := true
     QGui.Hide()
 }
 

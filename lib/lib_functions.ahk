@@ -28,23 +28,45 @@ getSelText_testVersion()
 getSelText()
 {
     ClipboardOld := ClipboardAll()
-    A_Clipboard := ""
-    SendInput("^{insert}") ; or ^c
-    if ClipWait(0.1)
+    selText := ""
+    try
     {
-        selText := A_Clipboard
-        A_Clipboard := ClipboardOld
-        if (selText == "")
-             return ""
-
-        lastChar := SubStr(selText, -1)
-        if(Ord(lastChar)!=10) ;如果最后一个字符是换行符，就认为是在IDE那复制了整行，不要这个结果
+        A_Clipboard := ""
+        SendInput("^{insert}") ; or ^c
+        if ClipWait(0.1)
         {
-            return selText
+            selText := A_Clipboard
+            if (selText == "")
+                return ""
+
+            lastChar := SubStr(selText, -1)
+            if (Ord(lastChar) == 10) ;如果最后一个字符是换行符，就认为是在IDE那复制了整行，不要这个结果
+                selText := ""
         }
     }
-    A_Clipboard := ClipboardOld
-    return ""
+    finally
+    {
+        ; 无论复制是否成功，都恢复调用前的完整剪贴板；重试覆盖应用异步写入的情况。
+        restoreClipboardAll(ClipboardOld)
+    }
+    return selText
+}
+
+restoreClipboardAll(clipboardAll)
+{
+    Loop 3
+    {
+        try
+        {
+            A_Clipboard := clipboardAll
+            return true
+        }
+        catch
+        {
+            Sleep 20
+        }
+    }
+    return false
 }
 
 ; UTF8encode Refactor using Buffer
