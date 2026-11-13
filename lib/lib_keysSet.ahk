@@ -95,7 +95,7 @@ keySchemeInit_capslox(){
         "caps_f4", "keyFunc_winTransparent",
         "caps_f5", "keyFunc_reload",
         "caps_f6", "keyFunc_winPin",
-        "caps_f7", "keyFunc_doNothing",
+        "caps_f7", "keyFunc_base64Decode",
         "caps_f8", "keyFunc_getJSEvalString",
         "caps_f9", "keyFunc_doNothing",
         "caps_f10", "keyFunc_doNothing",

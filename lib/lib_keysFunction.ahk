@@ -818,3 +818,118 @@ keyFunc_winPin(){
     }
     return
 }
+
+; 选中文本 Base64 解码：自动复制到剪贴板并弹窗确认，失焦/外部操作时自动关闭
+keyFunc_base64Decode() {
+    selText := getSelText()
+    if (selText == "") {
+        CLTheme_ShowToast("请先选中需要 Base64 解码的文本", 1500)
+        return
+    }
+
+    decoded := ""
+    errMsg := ""
+    if !Base64DecodeText(selText, &decoded, &errMsg) {
+        CLTheme_ShowToast(errMsg, 1800)
+        return
+    }
+
+    A_Clipboard := decoded
+    Base64_ShowResultPopup(decoded)
+}
+
+Base64_ShowResultPopup(decodedText) {
+    global Base64_PopupGui, Base64_PopupHwnd, Base64_PopupShownTick, Base64_PopupSeenActive
+
+    Base64_ClosePopup()
+
+    margin := CLTheme_Dpi(14)
+    w := CLTheme_Dpi(480)
+    headerH := CLTheme_Dpi(20)
+    gap := CLTheme_Dpi(8)
+    buttonH := CLTheme_Dpi(30)
+
+    ; 根据内容行数自适应编辑框高度，兼顾短文本与长文本滚动查看
+    StrReplace(decodedText, "`n", "`n", , &lineBreaks)
+    estLines := Max(4, Min(14, lineBreaks + 1 + Floor(StrLen(decodedText) / 56)))
+    bodyH := CLTheme_Dpi(Max(120, Min(280, estLines * 20 + 16)))
+    h := margin * 3 + headerH + gap + bodyH + buttonH
+
+    Base64_PopupGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound", "Base64 解码结果")
+    hwnd := Base64_PopupGui.Hwnd
+    Base64_PopupHwnd := hwnd
+    Base64_PopupSeenActive := false
+    Base64_PopupShownTick := A_TickCount
+
+    CLTheme_ApplyWindow(Base64_PopupGui, hwnd)
+    CLTheme_AddRainHeader(Base64_PopupGui, margin, margin, w - 2 * margin, "BASE64 DECODED · 已复制到剪贴板")
+    Base64_PopupGui.Add("Button", "x0 y0 w0 h0 Default Hidden", "OK").OnEvent("Click", Base64_ClosePopup)
+
+    bodyY := margin + headerH + gap
+    CLTheme_AddPanel(Base64_PopupGui, margin, bodyY, w - 2 * margin, bodyH, "panel")
+    Base64_PopupGui.SetFont(CLTheme_FontOptions(10, "text"), CLTheme_Font("ui"))
+    resultEdit := Base64_PopupGui.Add("Edit", "x" . (margin + 5) . " y" . (bodyY + 5) . " w" . (w - 2 * margin - 10) . " h" . (bodyH - 10) . " ReadOnly " . CLTheme_EditOptions("-WantReturn"), decodedText)
+    CLTheme_ApplyNativeControlTheme(resultEdit)
+
+    btnY := bodyY + bodyH + margin
+    CLTheme_AddTextButton(Base64_PopupGui, w - margin - CLTheme_Dpi(86), btnY, CLTheme_Dpi(86), buttonH, "确定", Base64_ClosePopup)
+    Base64_PopupGui.OnEvent("Escape", Base64_ClosePopup)
+    Base64_PopupGui.OnEvent("Close", Base64_ClosePopup)
+
+    Base64_PopupGui.Show("Center w" . w . " h" . h)
+    try WinActivate("ahk_id " . hwnd)
+    try PostMessage(0x00B1, -1, 0, resultEdit.Hwnd) ; 取消 Edit 默认全选，方便直接阅读
+
+    OnMessage(0x0006, Base64_PopupWMActivate)
+    SetTimer(Base64_CheckPopupFocus, 80)
+}
+
+Base64_PopupWMActivate(wParam, lParam, msg, hwnd) {
+    global Base64_PopupHwnd, Base64_PopupShownTick, Base64_PopupSeenActive
+    if (!IsSet(Base64_PopupHwnd) || !Base64_PopupHwnd || hwnd != Base64_PopupHwnd)
+        return
+
+    state := wParam & 0xFFFF
+    if (state > 0) {
+        Base64_PopupSeenActive := true
+        return
+    }
+
+    ; WA_INACTIVE：用户点击弹窗外部或切换窗口时自动关闭
+    if (Base64_PopupSeenActive || (A_TickCount - Base64_PopupShownTick > 150))
+        SetTimer(Base64_ClosePopup, -1)
+}
+
+Base64_CheckPopupFocus() {
+    global Base64_PopupHwnd, Base64_PopupShownTick, Base64_PopupSeenActive
+    if (!IsSet(Base64_PopupHwnd) || !Base64_PopupHwnd) {
+        SetTimer(Base64_CheckPopupFocus, 0)
+        return
+    }
+
+    if !WinExist("ahk_id " . Base64_PopupHwnd) {
+        Base64_ClosePopup()
+        return
+    }
+
+    if WinActive("ahk_id " . Base64_PopupHwnd) {
+        Base64_PopupSeenActive := true
+        return
+    }
+
+    ; 若已激活过或超过初始激活缓冲期仍未聚焦，说明焦点已转移到其他操作
+    if (Base64_PopupSeenActive || (A_TickCount - Base64_PopupShownTick > 250))
+        Base64_ClosePopup()
+}
+
+Base64_ClosePopup(*) {
+    global Base64_PopupGui, Base64_PopupHwnd, Base64_PopupSeenActive
+    SetTimer(Base64_CheckPopupFocus, 0)
+    OnMessage(0x0006, Base64_PopupWMActivate, 0)
+    Base64_PopupHwnd := 0
+    Base64_PopupSeenActive := false
+    if (IsSet(Base64_PopupGui) && Base64_PopupGui) {
+        try Base64_PopupGui.Destroy()
+        Base64_PopupGui := ""
+    }
+}

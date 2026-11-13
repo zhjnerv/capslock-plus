@@ -838,3 +838,57 @@ activateLaunchedTerminalWindow(terminalPid, existingWindows) {
 
     return false
 }
+
+; 将 Base64（含 URL-Safe 变体）解码为 UTF-8 文本；失败返回 false 并写入 errMsg。
+Base64DecodeText(rawStr, &decodedText, &errMsg := "") {
+    decodedText := ""
+    errMsg := ""
+
+    normalized := Trim(rawStr, " `t`r`n`"'")
+    normalized := RegExReplace(normalized, "\s+", "")
+    if (normalized == "") {
+        errMsg := "未选中有效文本"
+        return false
+    }
+
+    ; 兼容 URL-Safe Base64 并按 4 字符对齐补齐 '='
+    normalized := StrReplace(StrReplace(normalized, "-", "+"), "_", "/")
+    rem := Mod(StrLen(normalized), 4)
+    if (rem == 1) {
+        errMsg := "不是有效的 Base64 长度"
+        return false
+    } else if (rem == 2) {
+        normalized .= "=="
+    } else if (rem == 3) {
+        normalized .= "="
+    }
+
+    if !RegExMatch(normalized, "^[A-Za-z0-9+/]+={0,2}$") {
+        errMsg := "包含非 Base64 字符"
+        return false
+    }
+
+    byteLen := 0
+    ; CRYPT_STRING_BASE64 = 0x00000001
+    if !DllCall("Crypt32\CryptStringToBinaryW", "Str", normalized, "UInt", 0, "UInt", 0x1, "Ptr", 0, "UInt*", &byteLen, "Ptr", 0, "Ptr", 0) || byteLen <= 0 {
+        errMsg := "Base64 解码失败"
+        return false
+    }
+
+    buf := Buffer(byteLen, 0)
+    if !DllCall("Crypt32\CryptStringToBinaryW", "Str", normalized, "UInt", 0, "UInt", 0x1, "Ptr", buf, "UInt*", &byteLen, "Ptr", 0, "Ptr", 0) {
+        errMsg := "Base64 解码失败"
+        return false
+    }
+
+    ; 包含 NUL 字节通常意味着二进制数据，避免文本显示被截断或乱码
+    Loop byteLen {
+        if (NumGet(buf, A_Index - 1, "UChar") == 0) {
+            errMsg := "解码结果为二进制数据（" . byteLen . " 字节）"
+            return false
+        }
+    }
+
+    decodedText := StrGet(buf, byteLen, "UTF-8")
+    return true
+}
